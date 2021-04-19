@@ -1,0 +1,19 @@
+nelm = model.nelm;
+one = ones(nelm , 1);
+xk = x0;
+xkm1 = x0;
+xkm2 = x0;
+xmin = 1e-6*one;
+xmax = 1*one;
+low = xmin;
+upp = xmax;
+
+maxoutit = 30;
+kkttol = 1e-4;
+m = 1;
+n = nelm;
+epsimin = 1e-6;
+a0 = 1;
+a = 0;
+c = 1e3;
+d = 1;
