@@ -1,5 +1,4 @@
-vq = 0.3;
-
+% FEM Model
 geomfile = 'beamFullCoarseNew.mat';
 load(geomfile);
 
@@ -8,19 +7,26 @@ t = 1e-3;
 mpara = [1, 0.3];
 
 model = init2D([ex, ey], edof, ndof, mpara, t, eltype, bc, 2);
-x0 = ones(nelm, 1)*vq;
 
+%% Filtering and other
 fr = 10e-3;
 model.fr = fr;
 c0 = 32;
 
+%% Linear Solver and setting up probelm
 maxits = 6;
-nb = [2, 4, 12, 16];
-lnb = length(nb);
+nbasis = 8;
 
 solver = LinearSolver(maxits, nbasis);
 
-objective = SetupLC(model, solver, vq, x0, c0);
+vq = 0.3;
+x0 = ones(nelm, 1)*vq;
 
+F = zeros(ndof, 1);
+Fmax = -1e2;
+F(dofs_disp) = Fmax;
+objective = SetupLC(model, solver, F, vq, x0, c0);
+
+%% Solving problem using MMA
 mmainit;
 mmamain;

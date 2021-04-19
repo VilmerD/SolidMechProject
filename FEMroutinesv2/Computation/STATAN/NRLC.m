@@ -35,7 +35,7 @@ for n = 2:nmax + 1
     P(:, n) = Pn;
 
     un = u(:, n - 1);
-    rc = f(un) - Pn;
+    rc = f(un, Pn);
     
     nit_inner = 0;
     while nit_inner == 0 || norm(rc(alpha)) > rtol
@@ -44,7 +44,7 @@ for n = 2:nmax + 1
         [du, ~] = solver.solveq(K, -rc, bc);
         un = un + du;
 
-        rc = f(un) - Pn;
+        rc = f(un, Pn);
 
         nit_inner = nit_inner + 1;
         if nit_inner > 40

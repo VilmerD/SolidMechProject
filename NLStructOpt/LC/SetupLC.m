@@ -25,6 +25,7 @@ dcdzf = @(rho, uk, x)       model.dcdzf(dEdrho(rho), uk, x);
 % Setup Load controlled scheme
 nmax = 3;
 u0 = zeros(model.ndof, 1);
+bc = model.bc;
 
 % Linear Solver
 cothmax = 1 - 5e-3;
@@ -85,12 +86,12 @@ solver.statistics.del_dc = zeros(2*length(ind), 1);
         end
         
         % Computing compliance
-        [P, u] = solve(zf);
-        c = P'*u;
+        [~, u] = solve(zf);
+        c = F'*u;
         g0 = c*s;
         
         fprintf('\nComputing sensitivities')
-        [~, lambda] = solver.solveq(K(zf, u), -P);
+        [~, lambda] = solver.solveq(K(zf, u), -F);
         
         % The sensitivities are given by lambda*dfdzf
         dc = Mf*dcdzf(zf, u, lambda);
