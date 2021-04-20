@@ -7,7 +7,6 @@ dEdrho =    @(rho) q*(Emax - Emin)*rho.^(q - 1);
 
 % Filtering
 Mf = model.dfilter();
-Mf = 1;
 
 % Some basic model stuff
 volumes = model.volumes();
@@ -23,12 +22,16 @@ r = @(rho, uk, fext)        model.fintk(E(rho), uk) - fext;
 dcdzf = @(rho, uk, x)       model.dcdzf(dEdrho(rho), uk, x);
 
 % Setup Load controlled scheme
-nmax = 3;
-u0 = zeros(model.ndof, 1);
+nmax = 1;
+ndof = model.ndof;
+u0 = zeros(ndof, 1);
 bc = model.bc;
+np = bc(:, 1);
+nf = 1:ndof;
+nf(np) = [];
 
 % Linear Solver
-cothmax = 1 - 5e-3;
+cothmax = 1 - 1e-3;
 
 % Compute scaling factor
 if nargin < 4
@@ -36,7 +39,7 @@ if nargin < 4
     [Pi, ui] = solve(x0);
     c0 = Pi'*ui;
 end
-s = -100/c0;
+s = 100/c0;
 k = 0;
 
 % Numerical sensitivities
@@ -87,14 +90,17 @@ solver.statistics.del_dc = zeros(2*length(ind), 1);
         
         % Computing compliance
         [~, u] = solve(zf);
-        c = F'*u;
+        Ff = F(nf);
+        uf = u(nf);
+        c = Ff'*uf;
+        
         g0 = c*s;
         
         fprintf('\nComputing sensitivities')
-        [~, lambda] = solver.solveq(K(zf, u), -F, bc);
+        [~, l] = solver.solveq(K(zf, u), -F, bc);
         
         % The sensitivities are given by lambda*dfdzf
-        dc = Mf*dcdzf(zf, u, lambda);
+        dc = Mf'*dcdzf(zf, u, l);
         g0p = s*dc;
         
         num_dc = numerical_dcdzf(c, z);

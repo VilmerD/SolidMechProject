@@ -579,8 +579,6 @@ classdef init2D < handle
         end
         
         function y = dcdzf(obj, k, ed, x)
-            % x_times_dfdz(k, ed, x) computes the internal forces given the displacements
-            % ed
             y = zeros(obj.nelm, 1);
             for elm = 1:obj.nelm
                 [eck, edk, dofs] = obj.extract("element", elm, ed);

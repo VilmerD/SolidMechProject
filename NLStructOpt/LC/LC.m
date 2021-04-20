@@ -14,8 +14,8 @@ model.fr = fr;
 c0 = 311;
 
 %% Linear Solver and setting up probelm
-maxits = 6;
-nbasis = 8;
+maxits = 3;
+nbasis = 12;
 
 solver = LinearSolver(maxits, nbasis);
 
@@ -23,7 +23,7 @@ vq = 0.3;
 x0 = ones(nelm, 1)*vq;
 
 F = zeros(ndof, 1);
-Fmax = -1e4;
+Fmax = -1e3;
 F(dofs_disp) = Fmax;
 objective = SetupLC(model, solver, F, vq, x0, c0);
 
