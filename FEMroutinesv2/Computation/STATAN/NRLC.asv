@@ -54,12 +54,6 @@ for n = 2:nmax + 1
     end
     u(:, n) = un;
     NUMBER_OF_ITERATIONS = NUMBER_OF_ITERATIONS + nit_inner;
-    
-    if n == 2
-        u0 = un;
-    end
 end
 N = NUMBER_OF_ITERATIONS;
-u = u(:, end);
-P = P(:, end);
 end

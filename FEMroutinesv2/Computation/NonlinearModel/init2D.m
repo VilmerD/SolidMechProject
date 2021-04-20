@@ -171,8 +171,8 @@ classdef init2D < handle
                 obj.lagflag = 2;
                 
                 obj.fold = cell(obj.nelm, 1);
-                for k = 1:obj.nelm
-                    obj.fold{k, 1} = [1 0 0 1]';
+                for j = 1:obj.nelm
+                    obj.fold{j, 1} = [1 0 0 1]';
                 end
                 
                 % Axisymmetry
@@ -219,12 +219,12 @@ classdef init2D < handle
                 
                 % Setting up fold
                 obj.fold = cell(obj.nelm, 1);
-                for k = 1:obj.nelm
+                for i = 1:obj.nelm
                     foldk = cell(3, 1);
                     for j = 1:3
                         foldk{j, 1} = [1 0 0 1]';
                     end
-                    obj.fold{k} = foldk;
+                    obj.fold{i} = foldk;
                 end
                 
             else

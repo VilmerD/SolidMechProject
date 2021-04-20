@@ -91,7 +91,7 @@ solver.statistics.del_dc = zeros(2*length(ind), 1);
         g0 = c*s;
         
         fprintf('\nComputing sensitivities')
-        [~, lambda] = solver.solveq(K(zf, u), -F);
+        [~, lambda] = solver.solveq(K(zf, u), -F, bc);
         
         % The sensitivities are given by lambda*dfdzf
         dc = Mf*dcdzf(zf, u, lambda);
