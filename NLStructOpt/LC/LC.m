@@ -6,7 +6,7 @@ eltype = '2D4t';
 t = 1e-3;
 mpara = [1, 0.3];
 
-model = init2D([ex, ey], edof, ndof, mpara, t, eltype, bc, 2);
+model = NLCont2D([ex, ey], edof, ndof, mpara, t, eltype, bc, 2);
 
 %% Filtering and other
 fr = 10e-3;
