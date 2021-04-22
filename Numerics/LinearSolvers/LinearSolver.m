@@ -2,7 +2,8 @@ classdef LinearSolver < handle
     properties
         % Storing old factorizations and solutions
         Rold;
-        Aold;
+        Kold;
+        nsteps;
         
         % CA
         its_since_fact;
@@ -21,7 +22,7 @@ classdef LinearSolver < handle
         function obj = LinearSolver(maxits, s)
             obj.maxits = maxits;
             obj.its_since_fact = maxits;
-            
+
             obj.s = s;
             obj.statistics = struct('ncalls',         0, ...
                                     'factorizations', [], ...
@@ -32,76 +33,82 @@ classdef LinearSolver < handle
         end
         
         % Solves the equilibrium equations given by K, f, and bc
-        function [f, x] = solveq(obj, K, f, bc)
-            if nargin < 4
-                x = K\f;
-                f = zeros(length(x), 1);
-            else
-                obj.statistics.ncalls = obj.statistics.ncalls + 1;
-                % Initializing the dofs that correspond to known displacements
-                % (bck) and known forces(ddk)
-                bck = bc(:, 1);
-                xp = bc(:, 2);
+        function [f, x] = solveq(obj, K, f, bc, n)
+            obj.statistics.ncalls = obj.statistics.ncalls + 1;
 
-                ndof = length(f);
-                ddk = 1:ndof;
-                ddk(bck) = [];
+            % Initializing the dofs that correspond to known displacements
+            % (bck) and known forces(ddk)
+            np = bc(:, 1);
+            xp = bc(:, 2);
 
-                % Initializes the stiffness matrix and extracts the submatrices
-                % corresponding to solving the system
-                % [A B][u] = [g]    u unknown,  g known
-                % [C D][v] = [h]    v known,    h unknown
-                [A, B, C, D] = extractSubmatrices(K, bck, ddk);
+            ndof = length(f);
+            nf = 1:ndof;
+            nf(np) = [];
 
-                % Solve the reduced system Au = b
-                g = f(ddk);
-                v = xp;
-                b = g - B*v;
+            % Initializes the stiffness matrix and extracts the submatrices
+            % corresponding to solving the system
+            % [A B][u] = [g]    u unknown,  g known
+            % [C D][v] = [h]    v known,    h unknown
+            [Kff, Kfp, Kpf, Kpp] = extractSubmatrices(K, np, nf);
 
-                % If direct solvers is used maxits is 1, otherwise CA is used
-                if obj.force_factorization || obj.its_since_fact >= obj.maxits
-                    fprintf('\n(LS) Factorizing matrix.')
-                    obj.its_since_fact = 1;
-                    obj.statistics.factorizations(obj.statistics.ncalls) = 1;
-                    obj.Aold = A;
+            % Solve the reduced system Au = b
+            ff = f(nf);
+            up = xp;
+            b = ff - Kfp*up;
 
-                    % Try to do a cholesky, if the matrix is neg def do lu
-                    % instead. 
-                    try 
-                        R = chol(A);
-                        obj.Rold = R;
-                        u = R\(R'\b);
-                    catch
-                        fprintf('K < 0: Computing LU.')
-                        u = A\b;
-                    end
+            % If direct solvers is used maxits is 1, otherwise CA is used
+            if obj.force_factorization || obj.its_since_fact >= obj.maxits
+                fprintf('\n(LS) Factorizing matrix, ')
+                obj.its_since_fact = 1;
+                obj.statistics.factorizations(obj.statistics.ncalls) = 1;
+                obj.Kold{n} = Kff;
 
-                % Reusing previous factorization R of the submatrix A
-                else
-                    fprintf('\n(LS) Reusing factorization.')
-                    R = obj.Rold;
-                    dA = A - obj.Aold;
-
-                    % Generating basis vectors
-                    V = CA(R, A, dA, b, obj.s);
-
-                    % Projecting b onto the basis for the solution
-                    z = V'*b;
-                    u = V*z;
-
-                    obj.statistics.z(:, obj.statistics.ncalls) = z;
+                % Try to do a cholesky, if the matrix is neg def do lu
+                % instead.
+                fprintf('trying Cholesky... ')
+                try 
+                    R = chol(Kff);
+                    fprintf('Success. ')
+                    obj.Rold{n} = R;
+                    uf = R\(R'\b);
+                catch
+                    % Does not really work yet as i cannot save both U and
+                    % L, so this just makes the method fail if the
+                    % factorization is to be reused nest step.
+                    
+                    % maybe using a struct containing information of the
+                    % factorization used could solve it.
+                    fprintf('Failed, computing LU. ')
+                    [L, U] = lu(Kff);
+                    uf = U\(L\b);
                 end
-                % Compuing the reaction forces
-                h = C*u + D*v;
-                f(bck) = h;
 
-                % Assembling final solution vector
-                x = zeros(ndof, 1);
-                x(bck) = v;
-                x(ddk) = u;
+            % Reusing previous factorization R of the submatrix A
+            else
+                fprintf('\n(LS) Reusing factorization.')
+                R = obj.Rold{n};
+                dK = Kff - obj.Kold{n};
+
+                % Generating basis vectors
+                V = CA(R, Kff, dK, b, obj.s);
+
+                % Projecting b onto the basis for the solution
+                z = V'*b;
+                uf = V*z;
+
+                obj.statistics.z(:, obj.statistics.ncalls) = z;
             end
+            % Compuing the reaction forces
+            fp = Kpf*uf + Kpp*up;
+            f(np) = fp;
+
+            % Assembling final solution vector
+            x = zeros(ndof, 1);
+            x(np) = up;
+            x(nf) = uf;
         end
         
+        % Records data of the design update
         function recordUpdate(obj, z)
             st = obj.statistics;
             st.designUpdate = [st.designUpdate st.ncalls];
@@ -112,5 +119,6 @@ classdef LinearSolver < handle
             obj.its_since_fact = obj.its_since_fact + 1;
             obj.force_factorization = 0;
         end
+        
     end
 end

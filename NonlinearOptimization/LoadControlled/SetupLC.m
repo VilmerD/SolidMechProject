@@ -22,7 +22,8 @@ r = @(rho, uk, fext)        model.fintk(E(rho), uk) - fext;
 dcdzf = @(rho, uk, x)       model.dcdzf(dEdrho(rho), uk, x);
 
 % Setup Load controlled scheme
-nmax = 1;
+nmax = 3;
+solver.nsteps = nmax;
 ndof = model.ndof;
 u0 = zeros(ndof, 1);
 bc = model.bc;
@@ -43,13 +44,13 @@ s = 100/c0;
 k = 0;
 
 % Numerical sensitivities
-ind = [900 901 1306 1307];
+ind = [900 1307];
 solver.statistics.del_dc = zeros(2*length(ind), 1);
 
     % Numerical sensitivities at some elements
     function dc = numerical_dcdzf(c, z)
         solver.force_factorization = 1;
-        h = 1e-6;
+        h = 1e-7;
         dc = [];
         for i = ind
             % f(x + h)
@@ -66,21 +67,35 @@ solver.statistics.del_dc = zeros(2*length(ind), 1);
         solver.force_factorization = 0;
     end
     
+    % Solves the equilibrium equations for the current design z
     function [P, u] = solve(z)
         % Setup stiffness matrix and residual
         Kt = @(u) K(z, u);
         rt = @(u, f) r(z, u, f);
         
         % Solving problem
-        [P, u, u0] = NRLC(solver, Kt, rt, F, nmax, bc, u0);
+        if k == 0
+            nstart = 1;
+        else
+            nstart = nmax;
+        end
+        
+        [Pfull, ufull] = NRLC(solver, Kt, rt, F, nmax, bc, u0, nstart);
+        P = Pfull(:, end);
+        u = ufull(:, end);
+        
+        % Detemine which load state to start at next iteration
+        u0 = u;
     end
 
+    % Computes the function value, the constraints and their derivatives
+    % for the current design z
     function [g0, g0p, g1, g1p] = cmin(z)
         % Filtering design
         zf = Mf*z;
         
-        fprintf('\nComputing displacements');
         % Checking angle between designs
+        fprintf('\nComputing displacements');
         nz = norm(z);
         coth = (z/nz)'*zold;
         fprintf('. coth: %0.4f', coth)
@@ -96,15 +111,16 @@ solver.statistics.del_dc = zeros(2*length(ind), 1);
         
         g0 = c*s;
         
+        % Computing senisitivies
         fprintf('\nComputing sensitivities')
-        [~, l] = solver.solveq(K(zf, u), -F, bc);
+        [~, l] = solver.solveq(K(zf, u), -F, bc, nmax);
         
         % The sensitivities are given by lambda*dfdzf
         dc = Mf'*dcdzf(zf, u, l);
         g0p = s*dc;
         
-        num_dc = numerical_dcdzf(c, z);
-        solver.statistics.del_dc(:, k + 1) = [num_dc; dc(ind)];
+%         num_dc = numerical_dcdzf(c, z);
+%         solver.statistics.del_dc(:, k + 1) = [num_dc; dc(ind)];
 
         % Computing the volume constraint and it's sensitivities
         g1p = volumes'*Mf/Vmax;

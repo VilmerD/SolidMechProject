@@ -1,4 +1,4 @@
-function [P, u, u0, N] = NRLC(solver, Kt, f, p, nmax, bc, u0)
+function [P, u, N] = NRLC(solver, Kt, r, p, nmax, bc, u0, nstart)
 % Computes the load controlled response of the system
 %
 % Inputs
@@ -14,52 +14,66 @@ function [P, u, u0, N] = NRLC(solver, Kt, f, p, nmax, bc, u0)
 %
 %   u0:     initial displacement    [m x 1]
 %           optional, default is 0
+
+% Setup some standard data
 rtol = 1e-6;
-dP = p/nmax;
+m = length(p);
+nsteps = (nmax - (nstart - 1));
 
-if nargin < 6
-    u0 = zeros(length(dP), 1);
+if nargin < 7
+    nstart = 1;
+    if nargin < 6
+        u0 = zeros(m, 1);
+    end
 end
-m = length(dP);
+dP = p/nsteps;
 
+% Setup boundary condition and free noes
 nf = (1:m);
 np = bc(:, 1);
 if ~isempty(bc)
     nf(np) = [];
 end
 
-P = zeros(length(dP), nmax + 1);
-u = [u0, zeros(length(u0), nmax)];
+% Initialize solution vectors
+P = zeros(m, nmax + 1);
+u = zeros(m, nmax + 1);
+u(:, nstart) = u0;
 NUMBER_OF_ITERATIONS = 0;
-for n = 2:nmax + 1
-    Pn = P(:, n-1) + dP;
-    P(:, n) = Pn;
-
-    un = u(:, n - 1);
-    rc = f(un, Pn);
+for n = nstart:nmax
+    % Take a load step
+    Pn = P(:, n) + dP;
+    P(:, n + 1) = Pn;
+    
+    % Initialize displacement vector and residual
+    un = u(:, n);
+    rn = r(un, Pn);
+    norm_rn_free = norm(rn(nf));
     
     nit_inner = 0;
-    while nit_inner == 0 || norm(rc(nf)) > rtol
+    
+    % Correction step
+    while norm_rn_free > rtol
         K = Kt(un);
 
-        [~, du] = solver.solveq(K, -rc, bc);
+        % Solve for correction and update
+        [~, du] = solver.solveq(K, -rn, bc, n);
         un = un + du;
 
-        rc = f(un, Pn);
+        rn = r(un, Pn);
+        norm_rn_free = norm(rn(nf));
 
         nit_inner = nit_inner + 1;
+        fprintf('\n(NR) r: %1.2e', norm_rn_free);
         if nit_inner > 40
             error("Too large residual")
         end
     end
-    u(:, n) = un;
-    NUMBER_OF_ITERATIONS = NUMBER_OF_ITERATIONS + nit_inner;
     
-    if n == 2
-        u0 = un;
-    end
+    % Accept quantities
+    u(:, n + 1) = un;
+    NUMBER_OF_ITERATIONS = NUMBER_OF_ITERATIONS + nit_inner + 1;
+    
 end
 N = NUMBER_OF_ITERATIONS;
-u = u(:, end);
-P = P(:, end);
 end
