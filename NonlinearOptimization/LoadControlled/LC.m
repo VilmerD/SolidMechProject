@@ -43,7 +43,7 @@ analytical_sens = dc(nnodhalf+1:end, :);
 
 delta = numerical_sens - analytical_sens;
 relative_delta = delta./analytical_sens; 
-semilogy(abs(delta'))
+semilogy(abs(relative_delta'))
 
 xlabel("Iteration number")
 ylabel("Difference in derivatives")

@@ -119,8 +119,8 @@ solver.statistics.del_dc = zeros(2*length(ind), 1);
         dc = Mf'*dcdzf(zf, u, l);
         g0p = s*dc;
         
-%         num_dc = numerical_dcdzf(c, z);
-%         solver.statistics.del_dc(:, k + 1) = [num_dc; dc(ind)];
+        num_dc = numerical_dcdzf(c, z);
+        solver.statistics.del_dc(:, k + 1) = [num_dc; dc(ind)];
 
         % Computing the volume constraint and it's sensitivities
         g1p = volumes'*Mf/Vmax;
