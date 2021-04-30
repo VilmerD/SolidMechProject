@@ -14,7 +14,7 @@ model.fr = fr;
 c0 = 311;
 
 %% Linear Solver and setting up probelm
-maxits = 4;
+maxits = 1;
 nbasis = 10;
 
 solver = LinearSolver(maxits, nbasis);
@@ -34,7 +34,7 @@ mmamain;
 %% Save Data
 stats = solver.statistics;
 d = datevec(now); d = d(2:5);
-name = sprintf('%i%i%i%i.mat', d);
+name = sprintf('%2.i%2.i%i%2.i.mat', d);
 save(name, 'stats', 'maxits', 'nbasis')
 %% Numerical vs Analytical Derivatives
 figure(1)

@@ -8,8 +8,8 @@ xmax = 1*one;
 low = xmin;
 upp = xmax;
 
-maxoutit = 30;
-kkttol = 1e-4;
+maxoutit = 200;
+kkttol = 1e-9;
 m = 1;
 n = nelm;
 epsimin = 1e-6;

@@ -1,7 +1,9 @@
 function f = countFactorizations(factorizations, designUpdate)
-updates = length(designUpdate) - 2;
+updates = length(designUpdate);
 f = zeros(updates, 1);
-
+dup = 1;
 for k = 1:updates
-    f(k) = sum(factorizations(designUpdate(k):designUpdate(k + 1)));
+    du = designUpdate(k);
+    f(k) = sum(factorizations(dup:du));
+    dup = du;
 end
