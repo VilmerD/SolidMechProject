@@ -32,8 +32,8 @@ else
 end
 
 % Reset warning so illConditionedMatrix warning can be caught
-lastwarn('');
-s = warning('off', 'MATLAB:illConditionedMatrix');
+LASTWARN('');
+s = WARNING('off', 'MATLAB:illConditionedMatrix');
 
 % Initial guess
 if isfield(options, 'u0')
@@ -68,12 +68,10 @@ for n = n0:nmax
     rn = r(un, Pn);
     NORM_rFREE = norm(rn(nf));
     
-    % Check for warnings when assembling r
-    [warnmsg, ~] = lastwarn;
+    [warnmsg, warnid] = lastwarn();
     if ~isempty(warnmsg)
-        errorStruct.message = 'Problems with deformation gradient';
-        errorStruct.identifier = 'NRLC:FE_Error';
-        error(errorStruct);
+        errorStruct.message = sprintf(...
+            '
     end
     
     n_inner = 0;
@@ -113,5 +111,5 @@ end
 N = NUMBER_OF_ITERATIONS;
 
 % Reset warning
-warning(s);
+WARNING(s);
 end

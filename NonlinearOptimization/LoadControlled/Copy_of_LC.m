@@ -25,7 +25,7 @@ x0 = ones(nelm, 1)*vq;
 F = zeros(ndof, 1);
 Fmax = -1e3;
 F(dofs_disp) = Fmax;
-objective = SetupLC(model, solver, F, vq, x0, c0);
+objective = Copy_of_SetupLC(model, solver, F, vq, x0, c0);
 
 %% Solving problem using MMA
 mmainit;

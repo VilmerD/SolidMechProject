@@ -12,14 +12,14 @@ classdef LinearSolver < handle
         s;
         
         %
-        approx_sens = 0;
+        cothmax;
         
         %
         statistics;
     end
     
     methods
-        function obj = LinearSolver(maxits, s)
+        function obj = LinearSolver(maxits, s, cothmax)
             obj.maxits = maxits;
             obj.its_since_fact = maxits;
 
@@ -30,6 +30,10 @@ classdef LinearSolver < handle
                                     'residuals',      [], ...
                                     'designs',        [], ...
                                     'designUpdate',   []);
+            if nargin < 3
+                cothmax = 1-1e-3;
+            end
+            obj.cothmax = cothmax;
         end
         
         % Solves the equilibrium equations given by K, f, and bc
@@ -111,8 +115,15 @@ classdef LinearSolver < handle
         
         % Checks if the a factorization should be forced
         function checkAngle(obj, znew)
-            zold = statistics.designs(:, end);
-            coth = zold'*znew/(norm(zol))
+            if obj.statistics.ncalls > 0
+                zold = obj.statistics.designs(:, end);
+                coth = zold'*znew/(norm(zold)*norm(znew));
+                if coth < obj.cothmax
+                    obj.force_factorization = 1;
+                end
+            else
+                obj.force_factorization = 1;
+            end
         end
         
         % Records data of the design update

@@ -578,8 +578,8 @@ classdef NLCont2D < handle
             Kt = sparse(Kt);
         end
         
-        function y = dcdzf(obj, k, ed, x)
-            y = zeros(obj.nelm, 1);
+        function y = drdz(obj, k, ed)
+            y = zeros(obj.ndof, obj.nelm);
             for elm = 1:obj.nelm
                 [eck, edk, dofs] = obj.extract("element", elm, ed);
                 
@@ -598,9 +598,9 @@ classdef NLCont2D < handle
                 
                 % Using the above data the element forces can be computed
                 felm = obj.force(eck, edk, es);
-                xe = k(elm)*x(dofs)'*felm;
-                y(elm) = xe;
+                y(dofs, elm) = felm*k(elm);
             end
+            y = sparse(y);
         end
         
         % OBS Only works for rectangular elements
