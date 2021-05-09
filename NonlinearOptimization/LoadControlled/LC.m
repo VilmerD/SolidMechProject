@@ -23,7 +23,7 @@ vq = 0.3;
 x0 = ones(nelm, 1)*vq;
 
 F = zeros(ndof, 1);
-Fmax = -1e3;
+Fmax = -5e3;
 F(dofs_disp) = Fmax;
 objective = SetupLC(model, solver, F, vq, x0, c0);
 

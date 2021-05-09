@@ -75,12 +75,12 @@ classdef NLCont2D < handle
         % Sets the material model to either linear or nonlinear
         function setMaterialModel(obj, model)
             % which type of stress should be computed?
-            stresst = obj.stressflag;
+            stress_type = obj.stressflag;
             lag = obj.lagflag;
             m = obj.mpara;
             if model == 1
                 if obj.typeflag == 1
-                    obj.stress = @(f) stressMater2D1(stresst, m, f);
+                    obj.stress = @(f) stressMater2D1(stress_type, m, f);
                     obj.dmat = @(f) dMater2D1(lag, m, f);
                 else
                     % Placeholder for implementing material 1
@@ -90,10 +90,10 @@ classdef NLCont2D < handle
                 end
             elseif model == 2
                 if obj.typeflag == 1
-                    obj.stress = @(f) stressMater2D2(stresst, m, f);
+                    obj.stress = @(f) stressMater2D2(stress_type, m, f);
                     obj.dmat = @(f) dMater2D2(lag, m, f);
                 else
-                    obj.stress = @(f) stressMaterAxi2(stresst, m, f);
+                    obj.stress = @(f) stressMaterAxi2(stress_type, m, f);
                     obj.dmat = @(f) dMaterAxi2(lag, m, f);
                 end
             end
@@ -117,26 +117,6 @@ classdef NLCont2D < handle
                 areas(i) = dx*dy;
             end
             v = areas*obj.t;
-        end
-        
-        % Fetches the correct function calls for you :)
-        function [K, f] = getFuncs(obj, method)
-            if strcmpi("total", method)
-                K = @obj.K;
-                f = @obj.fint;
-            elseif strcmpi("updated", method)
-                K = @obj.Ku;
-                f = @obj.ru;
-            elseif strcmpi("energy", method)
-                K = @obj.KE;
-                f = @obj.fintstar;
-            elseif strcmpi("contact", method)
-                K = @obj.Kc;
-                f = @obj.fintc;
-            elseif strcmpi("contact_energy", method)
-                K = @obj.KEc;
-                f = @obj.fintstarc;
-            end
         end
         
         % Gets the element data

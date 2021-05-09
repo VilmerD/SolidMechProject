@@ -19,6 +19,7 @@ drdz = @(z, uk)         model.drdz(dEdrho(Mf*z), uk)*Mf;
 NR_OPTIONS.solver = @solver.solveq;
 zold = x0;
 uold = 0;
+drdzk = 0;
 
 % Guess correction
 BETA_SHRINK = 0.5;
@@ -43,30 +44,6 @@ if nargin < 4
 end
 s = 100/c0;
 k = 0;
-
-% Numerical sensitivities
-ind = [900 1307];
-solver.statistics.del_dc = zeros(2*length(ind), 1);
-
-% Numerical sensitivities at some elements
-    function dc = numerical_dcdzf(c, z)
-        solver.force_factorization = 1;
-        h = 1e-7;
-        dc = [];
-        for i = ind
-            % f(x + h)
-            zpe = z;
-            zpe(i) = zpe(i) + h;
-            zfpe = Mf*zpe;
-            
-            [Ppe, upe] = solve(zfpe);
-            cpe = (Ppe'*upe);
-            
-            dce = (cpe - c)/h;
-            dc = [dc; dce];
-        end
-        solver.force_factorization = 0;
-    end
 
 % Makes an initial guess using information from dz and dfintdz
 % The computational effort used here should be small?
@@ -107,7 +84,7 @@ solver.statistics.del_dc = zeros(2*length(ind), 1);
                     
                     % If the correction step doesn't converge it is
                     % probably due to CA, and so factorization is forced
-                    case 'NRLC:ConverganceError'
+                    case 'NR:ConverganceError'
                         if solver.force_factorization ~= 1
                             solver.force_factorization = 1;
                             [P, u] = solveInner(ustart, nstart);
@@ -120,7 +97,7 @@ solver.statistics.del_dc = zeros(2*length(ind), 1);
                     % Otherwise the error probably comes from starting too
                     % far away from equilibrium, and we need to use a new
                     % initial guess
-                    case 'NRLC:FE_Error'
+                    case 'NR:FE_Error'
                         NUMBER_OF_RESTARTS = log(beta)/log(BETA_SHRINK);
                         if NUMBER_OF_RESTARTS <= NUMBER_OF_SHRINKAGES_MAX
                             % Shrink beta
@@ -170,7 +147,7 @@ solver.statistics.del_dc = zeros(2*length(ind), 1);
         solver.checkAngle(z);
         
         % Solving equilibrium equations
-        [~, u] = solve(z);
+        [~, u] = solve(z, drdzk);
         
         % Computing objective function
         g0 = objective(F, u);
@@ -180,7 +157,8 @@ solver.statistics.del_dc = zeros(2*length(ind), 1);
         [~, l] = solver.solveq(K(z, u), -F, bc, nmax);
         
         % The sensitivities are given by lambda*dfdzf
-        g0p = s*(drdz(z, u)'*l);
+        drdzk = drdz(z, u);
+        g0p = s*(drdzk'*l);
         
         % Computing the volume constraint and it's sensitivities
         g1 = volumes'*Mf*z/Vmax - 1;

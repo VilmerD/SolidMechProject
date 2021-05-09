@@ -23,7 +23,14 @@ for i = 2:s
         vj = V(:, j);
         vi = vi - (ri'*K*vj)*vj;
     end
-    vi = vi/(vi'*K*vi)^(0.5);
+    KNORM_v = (vi'*K*vi)^(0.5);
+    
+    % If dK is zero or very small there will be numerical errors in the CA
+    % and the current basis vectors are suficcient
+    if abs(KNORM_v) < eps
+        return;
+    end
+    vi = vi/KNORM_v;
     V(:, i) = vi;
 end
 end

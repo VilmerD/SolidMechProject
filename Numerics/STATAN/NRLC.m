@@ -19,7 +19,7 @@ function [P, u, N] = NRLC(Kt, r, p, nmax, bc, options)
 if isfield(options, 'rtol')
     rtol = options.rtol;
 else
-    rtol = 1e-6;
+    rtol = 1e-4;
 end
 m = length(p);
 
@@ -66,19 +66,19 @@ for n = n0:nmax
     % Initialize displacement vector and residual
     un = u(:, n);
     rn = r(un, Pn);
-    NORM_rFREE = norm(rn(nf));
+    r_free = norm(rn(nf));
     
     % Check for warnings when assembling r
     [warnmsg, ~] = lastwarn;
     if ~isempty(warnmsg)
         errorStruct.message = 'Problems with deformation gradient';
-        errorStruct.identifier = 'NRLC:FE_Error';
+        errorStruct.identifier = 'NR:FE_Error';
         error(errorStruct);
     end
     
     n_inner = 0;
     % Correction step
-    while NORM_rFREE > rtol
+    while r_free > rtol
         K = Kt(un);
 
         % Solve for correction and update
@@ -93,14 +93,14 @@ for n = n0:nmax
         % Update quantities
         un = un + du;
         rn = r(un, Pn);
-        NORM_rFREE = norm(rn(nf));
+        r_free = norm(rn(nf));
 
         n_inner = n_inner + 1;
-        fprintf('\n(NR) r: %1.2e', NORM_rFREE);
+        fprintf('\n(NR) r: %1.2e', r_free);
         if n_inner > N_INNER_MAX
             errorStruct.message = sprintf(...
                 'Newton failed to converge within %i steps.', N_INNER_MAX);
-            errorStruct.identifier = 'NRLC:ConverganceError';
+            errorStruct.identifier = 'NR:ConverganceError';
             error(errorStruct)
         end
     end

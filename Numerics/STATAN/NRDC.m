@@ -1,55 +1,140 @@
-function [P, u, uk0] = NRDC(solver, K, r, bc, n, u0)
-R = [];
-atol = 1e-8; 
+function [P, u] = NRDC(K, r, xp, nmax, ndof, options)
+% Computes the displacement controlled response of the system
+%
+% Inputs
+%   Kt:     Stiffness matrix        (function with 1 input)
+%
+%   r:      Residual force vector   (function with 2 inputs)
+%
+%   xp:     Prescribed displacement [nbc x 1]
+%
+%   nmax:   amount of steps
+%   
+%   ndof:   number of degrees of freedom
+%
+%   options:
+%
+if isfield(options, 'rtol')
+    rtol = options.rtol;
+else
+    rtol = 1e-6;
+end
 
-resk = r(u0, 0);
-bc(:, 2) = bc(:, 2)/n;
-ndof = length(u0);
+if isfield(options, 'u0')
+    u0 = options.u0;
+    n0 = options.n0;
+else
+    u0 = zeros(ndof, 1);
+    n0 = 1;
+end
 
-zbc = bc;
-zbc(:, 2) = 0;
+nsteps = (nmax - (n0 - 1));
 
-dd = 1:ndof;
-dd(bc(:, 1)) = [];
+if isfield(options, 'Verbose')
+    verbosity = 1;
+else
+    verbosity = 1;
+end
 
-uk = u0;
-for k = 1:n
-    fprintf('\n(NR) Taking step')
-    % Taking initial step
-    dupk = bc(:, 2)*k - uk(bc(:, 1));
-    [~, duk] = solver.solveq(K(uk), -resk, [bc(:, 1) dupk]); 
-    uk = uk + duk;
+if isfield(options, 'N_INNER_MAX')
+    N_INNER_MAX = options.N_INNER_MAX;
+else
+    N_INNER_MAX = 50;
+end
+
+% Reset warning so illConditionedMatrix warning can be caught
+lastwarn('');
+s = warning('off', 'MATLAB:illConditionedMatrix');
+
+% The boundary condition used to correct the solution
+correct = xp;
+correct(:, 2) = 0;
+resn = r(u0, 0);
+
+% Free/Prescribed nodes
+np = xp(:, 1);
+nf = 1:ndof;
+nf(np) = [];
+
+% How much to load each step
+dup_k = xp(:, 2)/nmax;            
+
+% Initiating quantities
+un = u0;
+u = zeros(ndof, nmax);
+P = zeros(ndof, nmax);
+if verbosity
+    printHeading();
+end
+for n = n0:nmax
+    if verbosity
+        fprintf('\n|%12s|%9i|%9s|', 'Taking Step', n, '');
+    end
+    % Computing how much should be displaced
+    dup_n = n*dup_k - un(np);
+    load = [xp(:, 1) dup_n];
+    if isfield(options, 'solver')
+        [~, dun] = options.solver(K(un), -resn, load, n);
+    else
+        dun = solveq(K(un), -resn, load);
+    end
+    un = un + dun;
+    resn = r(un, 0);                % Residual foces
+    r_free = norm(resn(nf));        % Norm of residual in free nodes
     
-    % Computing residual forces
-    resk = r(uk, 0);
+   % Check for warnings when assembling r
+    checkResidualWarnings();
     
-    % Computing norm of residual forces in equilibrium
-    rk = norm(resk(dd));
-    R = [R, rk];
-    fprintf(' r: %1.2e', rk)
+    fprintf('% 1.2e|', r_free)
     
     % Iterating untill convergance
-    ninner = 0;
-    while rk > atol
-       if ninner == 0
-           fprintf('\n(NR) Correcting...');
-       end
-       % Computing new estimate, with zero displacement in prescribed nodes
-       [~, duk] = solver.solveq(K(uk), -resk, zbc);
-       uk = uk + duk;
-       resk = r(uk, 0);
-       rk = norm(resk(dd));
-       
-       R = [R rk];
-       ninner = ninner + 1;
-       fprintf(' r: %1.2e', rk)
+    N_INNER = 0;
+    if verbosity
+        fprintf('\n|%12s|%9i|%9i|%9s|', 'Correcting', n, '', '');
     end
-    
-    % Saving the first solution for the next step
-    if k == 1
-       uk0 = uk; 
+    while r_free > rtol
+        % Computing new estimate, with zero displacement in prescribed nodes
+        if isfield(options, 'solver')
+            [~, dun] = options.solver(K(un), -resn, correct, n);
+        else
+            dun = solveq(K(un), -resn, correct);
+        end
+        un = un + dun;
+        resn = r(un, 0);
+        r_free = norm(resn(nf));
+        
+        checkResidualWarnings();
+        
+        N_INNER = N_INNER + 1;
+        % Update user
+        if verbosity
+            printAction('', n, N_INNER, r_free);
+        end
+        if N_INNER > N_INNER_MAX
+            errorStruct.message = sprintf(...
+                'Newton failed to converge within %i steps.', N_INNER_MAX);
+            errorStruct.identifier = 'NR:ConverganceError';
+            error(errorStruct)
+        end
+    end
+    u(:, n) = un;
+    P(:, n) = resn;
+end
+end
+
+function printHeading()
+fprintf('\n|   Action   | n_outer | n_inner |    r    |');
+end
+
+function printAction(action, nouter, ninner, r)
+fprintf('\n|%12s|%9i|%9i|% 1.2e|', action, nouter, ninner, r)
+end
+
+function checkResidualWarnings()
+    [warnmsg, ~] = lastwarn;
+    if ~isempty(warnmsg)
+        errorStruct.message = 'Problems with deformation gradient';
+        errorStruct.identifier = 'NR:FE_Error';
+        error(errorStruct);
     end
 end
-solver.statistics.residuals = [solver.statistics.residuals R];
-P = r(uk, 0);
-u = uk;
