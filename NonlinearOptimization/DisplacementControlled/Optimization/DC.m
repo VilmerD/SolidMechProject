@@ -18,7 +18,7 @@ filterRadius = 10e-3;
 model.fr = filterRadius;
 
 %% Linear Solver and setting up probelm
-maxits = 0;     % Set to 0 to always force factorization
+% maxits = 4;     % Set to 0 to always force factorization
 nbasis = 10;    
 solver = LinearSolver(maxits, nbasis);
 
@@ -36,7 +36,7 @@ elseif amountDisplaced == -0.5
     c0 = 8e2;
 end
 [objective, Listener] = ...
-    SetupDC(model, solver, vq, xp, x0, c0);
+    SetupDC(model, solver, vq, xp, x0, c0, dzGuess);
 
 %% Solving problem using MMA
 mmainit;
@@ -45,9 +45,15 @@ mmamain;
 %% Save Data
 stats = Listener.statistics;
 d = datevec(now); date = sprintf('%0.2i%0.2i%0.2i%0.2i', d(2:5));
-data = struct('stats', stats, 'maxits', maxits, 'nbasis', nbasis, ...
-    'vq', vq, 'FilterRadius', filterRadius, 'date', date, ...
-    'geomfile', geomfile);
+data = struct('stats', stats, ...
+              'maxits', maxits, ...
+              'nbasis', nbasis, ...
+              'vq', vq, ...
+              'filterRadius', filterRadius, ...
+              'dzGuess', dzGuess, ...
+              'amountDisplaced', amountDisplaced, ...
+              'date', date, ...
+              'geomfile', geomfile);
 
 addpath(genpath('NonlinearOptimization'))
 try

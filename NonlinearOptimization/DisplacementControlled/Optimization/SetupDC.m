@@ -1,4 +1,4 @@
-function [obj, Listener] = SetupDC(model, solver, vq, xp, x0, c0)
+function [obj, Listener] = SetupDC(model, solver, vq, xp, x0, c0, dzGuess)
 % Filtering
 Mf = model.dfilter();
 
@@ -21,7 +21,6 @@ dr_dz = @(z, uk)    model.drdz(dnu_drho(Mf*z), uk)*Mf;
 NR_OPTIONS.solver = @solver.solveq;
 zold = x0;
 uold = zeros(ndof, 1);
-dzGuess = 1;
 dzTol = 1e0;
 drdzk = zeros(ndof, nelm);
 
@@ -30,7 +29,7 @@ nmax = 10;
 solver.nsteps = nmax;
 u0 = zeros(ndof, 1);
 bc = model.bc;
-cothmax = 1 - 5e-4;
+cothmax = 1 - 1e-3;
 
 % Free and prescribed nodes
 np = bc(:, 1);
@@ -40,7 +39,7 @@ f_zero = zeros(ndof, 1);
 
 % Compute scaling factor
 k = 0;
-if nargin < 6
+if nargin < 7
     fprintf('Computing scaling factor \n')
     [Pi, ui] = solve(x0);
     c0 = Pi(np)'*ui(np);

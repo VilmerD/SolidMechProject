@@ -1,5 +1,8 @@
 %% Load data 
-load beamFullCoarseDC.mat;
+h = 0.1;
+load('beamFullCoarseDC.mat');
+load('solutions.mat');
+z = solutions{end}.stats.designs(:, end);
 
 %% Make model instance
 matmod = 2;
@@ -9,22 +12,19 @@ mpara = [210e9, 0.3];
 model = NLCont2D([ex ey], edof, ndof, mpara, t, eltype, bc, matmod);
 
 %% Setup displacement controlled data
-dmax = -0.3;
-h = 0.1;
-bc(:, 2) = bc(:, 2)*dmax*h;
+dmax = -0.5;
+xp = bc;
+xp(:, 2) = xp(:, 2)*dmax*h;
 
 %% Test displacement controlled algo
-K = @model.K;
-r = @(u, f) model.fint(u) - f;
-nmax = 3;
+K = @(u) model.Kk(z, u);
+r = @(u, f) model.fintk(z, u) - f;
+nmax = 12;
 m = model.ndof;
 options = struct();
-[P, u] = NRDC(K, r, bc, nmax, m, options);
-
+[P, u] = NRDC(K, r, xp, nmax, m, options);
+uend = u(:, end);
 %% Plot results
-ue = u(model.edof(:, 2:end));
-eldisp2(ex, ey, ue, [1 4 1], 1);
-
-%% End compliance
-np = bc(:, 1);
-c = u(np)'*P(np);
+ue = uend(model.edof(:, 2:end));
+fill((ex + ue(:, 1:2:end))', (ey + ue(:, 2:2:end))', z);
+axis image
