@@ -14,6 +14,7 @@ function [P, u] = NRDC(K, r, xp, nmax, ndof, options)
 %
 %   options:
 %
+rMax = 1e12;
 if isfield(options, 'rtol')
     rtol = options.rtol;
 else
@@ -28,8 +29,6 @@ else
     n0 = 1;
 end
 
-nsteps = (nmax - (n0 - 1));
-
 if isfield(options, 'Verbose')
     verbosity = 1;
 else
@@ -39,7 +38,7 @@ end
 if isfield(options, 'N_INNER_MAX')
     N_INNER_MAX = options.N_INNER_MAX;
 else
-    N_INNER_MAX = 50;
+    N_INNER_MAX = 10;
 end
 
 % Reset warning so illConditionedMatrix warning can be caught
@@ -73,11 +72,21 @@ for n = n0:nmax
     % Computing how much should be displaced
     dup_n = n*dup_k - un(np);
     load = [xp(:, 1) dup_n];
+    
+    % Displacement
     if isfield(options, 'solver')
-        [~, dun] = options.solver(K(un), -resn, load, n);
+        [~, s] = options.solver(K(un), -resn, load, n);
     else
-        dun = solveq(K(un), -resn, load);
+        s = solveq(K(un), -resn, load);
     end
+    % Line search
+    r0 = -s'*resn;
+    r1 = -s'*r(un + s, 0);
+    bapp = r0/(r0 - r1);
+    b = max(0.3, min(bapp, 3));
+    dun = s;
+    dun(nf) = b*s(nf);
+    
     un = un + dun;
     resn = r(un, 0);                % Residual foces
     r_free = norm(resn(nf));        % Norm of residual in free nodes
@@ -95,10 +104,18 @@ for n = n0:nmax
     while r_free > rtol
         % Computing new estimate, with zero displacement in prescribed nodes
         if isfield(options, 'solver')
-            [~, dun] = options.solver(K(un), -resn, correct, n);
+            [~, s] = options.solver(K(un), -resn, correct, n);
         else
-            dun = solveq(K(un), -resn, correct);
+            s = solveq(K(un), -resn, correct);
         end
+        % Line search
+        r0 = -s'*resn;
+        r1 = -s'*r(un + s, 0);
+        bapp = r0/(r0 - r1);
+        b = max(0.3, min(bapp, 3));
+        dun = s;
+        dun(nf) = b*s(nf);
+        
         un = un + dun;
         resn = r(un, 0);
         r_free = norm(resn(nf));
@@ -110,7 +127,7 @@ for n = n0:nmax
         if verbosity
             printAction('', n, N_INNER, r_free);
         end
-        if N_INNER > N_INNER_MAX
+        if N_INNER > N_INNER_MAX || r_free > rMax
             errorStruct.message = sprintf(...
                 'Newton failed to converge within %i steps.', N_INNER_MAX);
             errorStruct.identifier = 'NR:ConverganceError';

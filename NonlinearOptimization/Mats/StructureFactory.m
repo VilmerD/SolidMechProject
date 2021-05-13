@@ -16,9 +16,16 @@ classdef StructureFactory
             obj.height = h;
         end
         
-        function filename = makeStructure(obj, prescribe_force, W, H)
+        function filename = makeStructure(obj, prescribe_force, S)
             load(obj.baseGeometry, 'coord', 'dof', 'edof', 'enod')
             % Basic data
+            if nargin < 3
+                W  = 1; 
+                H = 1;
+            else
+                W = S(1);
+                H = S(2);
+            end
             [nelm, ~] = size(edof);
             ndof = max(edof(:));
             

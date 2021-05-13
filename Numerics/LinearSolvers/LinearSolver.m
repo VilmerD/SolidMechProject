@@ -9,7 +9,7 @@ classdef LinearSolver < handle
         iterationsSinceFactorization;
         forceFactorization = 1;
         maxits;
-        s;
+        nBasis;
         
         %
         cothmax;
@@ -19,21 +19,14 @@ classdef LinearSolver < handle
     end
     
     methods
-        function obj = LinearSolver(maxits, s, cothmax)
+        function obj = LinearSolver(maxits, nBasis)
             obj.maxits = maxits;
             obj.iterationsSinceFactorization = maxits;
             
-            obj.s = s;
-            obj.statistics = struct('ncalls',         0, ...
-                'factorizations', [], ...
-                'z',              [], ...
-                'residuals',      [], ...
-                'designs',        [], ...
-                'designUpdate',   []);
-            if nargin < 3
-                cothmax = 1-1e-3;
-            end
-            obj.cothmax = cothmax;
+            obj.nBasis = nBasis;
+            obj.statistics = struct('ncalls', 0, ...
+                'factorizations', 0, ...
+                'residuals',      []);
         end
         
         % Solves the equilibrium equations given by K, f, and bc
@@ -64,7 +57,8 @@ classdef LinearSolver < handle
             if obj.forceFactorization || ...
                     obj.iterationsSinceFactorization >= obj.maxits
                 obj.iterationsSinceFactorization = 1;
-                obj.statistics.factorizations(obj.statistics.ncalls) = 1;
+                obj.statistics.factorizations = ...
+                    obj.statistics.factorizations + 1;
                 obj.Kold{n} = Kff;
                 
                 % Try to do a cholesky, if the matrix is neg def do lu
@@ -86,19 +80,19 @@ classdef LinearSolver < handle
                 
                 % Reusing previous factorization R of the submatrix A
             else
-                obj.statistics.factorizations(obj.statistics.ncalls) = 0;
+                obj.iterationsSinceFactorization = ...
+                    obj.iterationsSinceFactorization + 1;
                 R = obj.Rold{n};
                 dK = Kff - obj.Kold{n};
                 % Generating basis vectors
                 
                 % If Knew = Kold, then dK = 0 and CA fails since the space
                 % is spanned by only 1 vector.
-                V = CA(R, Kff, dK, b, obj.s);
+                V = CA(R, Kff, dK, b, obj.nBasis);
                 
                 % Projecting b onto the basis for the solution
                 z = V'*b;
                 uf = V*z;
-                obj.statistics.z(:, obj.statistics.ncalls) = z;
             end
             % Compuing the reaction forces
             fp = Kpf*uf + Kpp*up;
@@ -110,27 +104,8 @@ classdef LinearSolver < handle
             x(nf) = uf;
         end
         
-        % Checks if the a factorization should be forced
-        function checkAngle(obj, znew)
-            if obj.statistics.ncalls > 0
-                zold = obj.statistics.designs(:, end);
-                coth = zold'*znew/(norm(zold)*norm(znew));
-                if coth < obj.cothmax
-                    obj.forceFactorization = 1;
-                end
-            else
-                obj.forceFactorization = 1;
-            end
-        end
-        
         % Records data of the design update
-        function recordUpdate(obj, z)
-            st = obj.statistics;
-            st.designUpdate = [st.designUpdate st.ncalls];
-            st.designs = [st.designs z];
-            st.residuals = [st.residuals, 0];
-            obj.statistics = st;
-            
+        function recordUpdate(obj)
             obj.iterationsSinceFactorization = ...
                 obj.iterationsSinceFactorization + 1;
             obj.forceFactorization = 0;
