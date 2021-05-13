@@ -13,12 +13,12 @@ classdef TOListener < handle
             obj.statistics.lineqs = [];
         end
         
-        function registerUpdate(obj, newStatistics)
-            obj.statistics.g0(end + 1) = newStatistics.g0;
-            obj.statistics.g1(end + 1) = newStatistics.g1;
-            obj.statistics.designs(:, end+1) = newStatistics.design;
-            obj.statistics.factorizations(end + 1) = newStatistics.factorizations;
-            obj.statistics.lineqs(end + 1) = newStatistics.ncalls; 
+        function registerUpdate(obj, statistics)
+            obj.statistics.g0(end + 1) = statistics.g0;
+            obj.statistics.g1(end + 1) = statistics.g1;
+            obj.statistics.designs(:, end+1) = statistics.design;
+            obj.statistics.factorizations(end + 1) = statistics.factorizations;
+            obj.statistics.lineqs(end + 1) = statistics.ncalls; 
         end
     end
 end

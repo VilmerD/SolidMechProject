@@ -1,24 +1,4 @@
-% Using dzGuess
-% CA approximation
-dzGuess = 1;
-maxits = 4;
-DC;
-
-% No CA
-maxits = 0;
-DC;
-
-% Not using dzGuess
-% CA approximation
-dzGuess = 0;
-maxits = 4;
-DC;
-
-% No CA
-maxits = 0;
-DC;
-
-%%
+%% Run some tests
 dzGuess_v = [1 1 0 0];
 maxits_v = [4 0 4 0];
 for k = 1:4
@@ -31,7 +11,7 @@ end
 %% Test solution
 figure(1);
 hold on;
-load('solutions.mat');
+load('SolidMechProject/NonlinearOptimization/Mats/solutions.mat');
 c0 = -12.42;
 for i = 1:4
     data = solutions{end-i+1};
@@ -49,7 +29,7 @@ for i = 1:4
     else
         sign = ['r', sign];
     end
-    if maxits_v(i) == 0
+    if maxits_v(i) > 0
         sign = [sign, '^'];
     else
         sign = [sign, 's'];

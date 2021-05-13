@@ -5,16 +5,14 @@ classdef LinearSolver < handle
         Kold;
         nsteps;
         
-        % CA
+        % CA data
         iterationsSinceFactorization;
         forceFactorization = 1;
         maxits;
         nBasis;
         
-        %
-        cothmax;
-        
-        %
+        % Solver statistics such as number of factorizations and number of
+        % calls
         statistics;
     end
     
@@ -25,8 +23,7 @@ classdef LinearSolver < handle
             
             obj.nBasis = nBasis;
             obj.statistics = struct('ncalls', 0, ...
-                'factorizations', 0, ...
-                'residuals',      []);
+                                    'factorizations', 0);
         end
         
         % Solves the equilibrium equations given by K, f, and bc
@@ -104,10 +101,10 @@ classdef LinearSolver < handle
             x(nf) = uf;
         end
         
-        % Records data of the design update
-        function recordUpdate(obj)
-            obj.iterationsSinceFactorization = ...
-                obj.iterationsSinceFactorization + 1;
+        function stats = getStats(obj)
+            stats = obj.statistics;
+            obj.statistics.ncalls = 0;
+            obj.statistics.factorizations = 0;
             obj.forceFactorization = 0;
         end
         

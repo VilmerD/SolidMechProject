@@ -200,14 +200,11 @@ Listener = TOListener();
         g1p = volumes'*Mf/Vmax;
         
         k = k + 1;
-        stats = solver.statistics;
+        stats = solver.getStats();
         stats.g0 = g0;
         stats.g1 = g1;
         stats.design = z;
         Listener.registerUpdate(stats);
-        stats.ncalls = 0;
-        stats.factorizations = 0;
-        solver.statistics = stats;
     end
 obj = @cmin;
 end

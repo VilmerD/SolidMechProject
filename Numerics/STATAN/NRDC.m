@@ -67,7 +67,7 @@ if verbosity
 end
 for n = n0:nmax
     if verbosity
-        fprintf('\n|%12s|%9i|%9s|', 'Taking Step', n, '');
+        fprintf('\n%12s%9i%9s', 'Taking Step', n, '');
     end
     % Computing how much should be displaced
     dup_n = n*dup_k - un(np);
@@ -94,12 +94,12 @@ for n = n0:nmax
    % Check for warnings when assembling r
     checkResidualWarnings();
     
-    fprintf('% 1.2e|', r_free)
+    fprintf('% 1.2e', r_free)
     
     % Iterating untill convergance
     N_INNER = 0;
     if verbosity
-        fprintf('\n|%12s|%9i|%9i|%9s|', 'Correcting', n, '', '');
+        fprintf('\n%12s%9i%9i%9s', 'Correcting', n, '', '');
     end
     while r_free > rtol
         % Computing new estimate, with zero displacement in prescribed nodes
@@ -140,11 +140,11 @@ end
 end
 
 function printHeading()
-fprintf('\n|   Action   | n_outer | n_inner |    r    |');
+fprintf('\n   Action    n_outer  n_inner     r    ');
 end
 
 function printAction(action, nouter, ninner, r)
-fprintf('\n|%12s|%9i|%9i|% 1.2e|', action, nouter, ninner, r)
+fprintf('\n%12s%9i%9i% 1.2e', action, nouter, ninner, r)
 end
 
 function checkResidualWarnings()
