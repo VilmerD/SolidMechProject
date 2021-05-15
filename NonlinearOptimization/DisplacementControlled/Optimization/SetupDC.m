@@ -23,9 +23,11 @@ zold = x0;
 uold = zeros(ndof, 1);
 dzTol = 1e0;
 drdzk = zeros(ndof, nelm);
-
+K = @(z, uk)        model.Kk(nu(Mf*z), uk);
+r = @(z, uk, fext)  model.fintk(nu(Mf*z), uk) - fext;
+dr_dz = @(z, uk)    model.drdz(dnu_drho(Mf*z), uk)*Mf;
 % Setup Disp. controlled scheme
-nmax = 10;
+nmax = 6;
 solver.nsteps = nmax;
 u0 = zeros(ndof, 1);
 bc = model.bc;
@@ -84,12 +86,17 @@ Listener = TOListener();
             restarts = 0;
             nstart = 1;
             ustart = u0;
-            [~, u] = solveInner(zold, dz/2, 0);
+            [~, u] = solveInner(zold, dz/3, 0);
             
             restarts = 0;
-            nstart = 1;
+            nstart = nmax;
             ustart = u(:, nstart);
-            [P, u] = solveInner(zold + dz/2, dz/2, 0);
+            [~, u] = solveInner(zold + dz/3, dz/3, 0);
+            
+            restarts = 0;
+            nstart = nmax;
+            ustart = u(:, nstart);
+            [P, u] = solveInner(zold + 2*dz/3, dz/3, 0);
         end
         
         % Inner function that solves the equilibrium equations, and resets

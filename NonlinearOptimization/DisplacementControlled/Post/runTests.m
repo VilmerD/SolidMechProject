@@ -12,7 +12,11 @@ end
 figure(1);
 hold on;
 load('SolidMechProject/NonlinearOptimization/Mats/solutions.mat');
-c0 = -12.42;
+
+%%
+figure(1);
+hold on;
+c0 = -30.9;
 for i = 1:4
     data = solutions{end-i+1};
     stats = data.stats;
@@ -37,6 +41,6 @@ for i = 1:4
     plot(nlqi, nfi, sign, 'Displayname', name);
     hold on
 end
-xlabel('Number of iterations')
+xlabel('Number of lineqs')
 ylabel('Number of factorizations')
 legend();
