@@ -1,13 +1,13 @@
 %% Running tests
 dzGuess_v = [1 0 0];
 maxits_v = [6 6 0];
+
 for k = 1:4
     dzGuess = dzGuess_v(k);
     maxits = maxits_v(k);
     DC;
 end
 
-%%
 %% Test solution
 nits = 201;
 f1 = figure(1);
@@ -15,6 +15,10 @@ f2 = figure(2);
 load('solutions.mat');
 c0 = -30;
 colors = ['g', 'g', 'k'];
+figure(1);
+hold on;
+load('SolidMechProject/NonlinearOptimization/Mats/solutions.mat');
+c0 = -30.9;
 for i = 1:4
     data = solutions{end-4+i};
     stats = data.stats;

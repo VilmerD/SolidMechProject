@@ -23,7 +23,9 @@ zold = x0;
 uold = zeros(ndof, 1);
 dzTol = 1e0;
 drdzk = zeros(ndof, nelm);
-
+K = @(z, uk)        model.Kk(nu(Mf*z), uk);
+r = @(z, uk, fext)  model.fintk(nu(Mf*z), uk) - fext;
+dr_dz = @(z, uk)    model.drdz(dnu_drho(Mf*z), uk)*Mf;
 % Setup Disp. controlled scheme
 nmax = 6;
 solver.nsteps = nmax;
@@ -84,12 +86,17 @@ Listener = TOListener();
             restarts = 0;
             nstart = 1;
             ustart = u0;
-            [~, u] = solveInner(zold, dz/2, 0);
+            [~, u] = solveInner(zold, dz/3, 0);
             
             restarts = 0;
-            nstart = 1;
+            nstart = nmax;
             ustart = u(:, nstart);
-            [P, u] = solveInner(zold + dz/2, dz/2, 0);
+            [~, u] = solveInner(zold + dz/3, dz/3, 0);
+            
+            restarts = 0;
+            nstart = nmax;
+            ustart = u(:, nstart);
+            [P, u] = solveInner(zold + 2*dz/3, dz/3, 0);
         end
         
         % Inner function that solves the equilibrium equations, and resets
@@ -200,14 +207,11 @@ Listener = TOListener();
         g1p = volumes'*Mf/Vmax;
         
         k = k + 1;
-        stats = solver.statistics;
+        stats = solver.getStats();
         stats.g0 = g0;
         stats.g1 = g1;
         stats.design = z;
         Listener.registerUpdate(stats);
-        stats.ncalls = 0;
-        stats.factorizations = 0;
-        solver.statistics = stats;
     end
 obj = @cmin;
 end
