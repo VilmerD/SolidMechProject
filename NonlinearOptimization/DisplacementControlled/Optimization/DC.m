@@ -19,13 +19,13 @@ model.fr = filterRadius;
 
 %% Linear Solver and setting up probelm
 % maxits = 4;     % Set to 0 to always force factorization
-nbasis = 10;    
+nbasis = 12;    
 solver = LinearSolver(maxits, nbasis);
 
 vq = 0.3;
 x0 = ones(nelm, 1)*vq;
 
-amountDisplaced = -0.5;
+amountDisplaced = -0.3;
 xp = bc;
 xp(:, 2) = xp(:, 2)*height*amountDisplaced;
 if amountDisplaced == -0.3

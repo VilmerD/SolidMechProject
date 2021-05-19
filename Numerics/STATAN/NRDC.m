@@ -18,7 +18,7 @@ rMax = 1e12;
 if isfield(options, 'rtol')
     rtol = options.rtol;
 else
-    rtol = 1e-6;
+    rtol = 1e-8;
 end
 
 if isfield(options, 'u0')

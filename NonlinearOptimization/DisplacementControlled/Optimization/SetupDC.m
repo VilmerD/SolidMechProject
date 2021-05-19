@@ -25,7 +25,7 @@ dzTol = 1e0;
 drdzk = zeros(ndof, nelm);
 
 % Setup Disp. controlled scheme
-nmax = 10;
+nmax = 6;
 solver.nsteps = nmax;
 u0 = zeros(ndof, 1);
 bc = model.bc;
