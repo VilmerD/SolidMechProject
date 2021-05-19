@@ -19,7 +19,7 @@ model.fr = filterRadius;
 
 %% Linear Solver and setting up probelm
 % maxits = 4;     % Set to 0 to always force factorization
-nbasis = 12;    
+nbasis = 8;    
 solver = LinearSolver(maxits, nbasis);
 
 vq = 0.3;
@@ -57,7 +57,7 @@ data = struct('stats', stats, ...
 
 addpath(genpath('NonlinearOptimization'))
 try
-    load('NonlinearOptimization\Mats\solutions');
+    load('solutions');
     solutions{end + 1} = data;
 catch ME
     if strcmpi(ME.identifier, 'MATLAB:load:couldNotReadFile')
@@ -67,4 +67,4 @@ catch ME
         rethrow(ME)
     end
 end
-save('NonlinearOptimization\Mats\solutions', 'solutions')
+save('solutions')

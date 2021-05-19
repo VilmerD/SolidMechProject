@@ -19,6 +19,7 @@ r = @(z, uk, fext)  model.fintk(nu(Mf*z), uk) - fext;
 dr_dz = @(z, uk)    model.drdz(dnu_drho(Mf*z), uk)*Mf;
 
 NR_OPTIONS.solver = @solver.solveq;
+NR_OPTIONS.rtol = 1e-7;
 zold = x0;
 uold = zeros(ndof, 1);
 dzTol = 1e0;
