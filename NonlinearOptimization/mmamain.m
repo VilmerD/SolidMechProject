@@ -1,11 +1,11 @@
 fprintf('\n ---- Starting MMA ----');
 [g0, dg0dx, g1, dg1dx] = objective(xk);
-
+yz = zeros(maxoutit, 2);
 kktnorm = 2*kkttol;
 outit = 0;
 while kktnorm > kkttol && outit < maxoutit
     outit = outit + 1;
-    fprintf('------------------------------')
+    fprintf('\n------------------------------')
     fprintf('\n(%03i)', outit);
     
     % Solving the mma subproblem at the current design
@@ -25,9 +25,9 @@ while kktnorm > kkttol && outit < maxoutit
     [~, kktnorm, ] = kktcheck(m, n, xk, ymma, zmma, lam, xsi, ...
         eta, mu, zet, s, xmin, xmax, dg0dx, g1, dg1dx, a0, a, c, d);
     fprintf('\n%10s%10s', 'g0', 'kktnorm')
-    fprintf('\n%1.3e %1.3e\n', g0, kktnorm)
+    fprintf('\n%1.3e %1.3e', g0, kktnorm)
 end
 
-clear kktnorm ymma zmma lam xsi eta mu zet s xmin xmax g0 dg0dx g1 ...
-    dg1dx a0 a c d epsimin kkttol low n one outit upp xkm1 xkm2 xkp1 ...
-    maxoutit m
+% clear kktnorm ymma zmma lam xsi eta mu zet s xmin xmax g0 dg0dx g1 ...
+%     dg1dx a0 a c d epsimin kkttol low n one outit upp xkm1 xkm2 xkp1 ...
+%     maxoutit m

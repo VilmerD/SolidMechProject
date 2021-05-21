@@ -16,10 +16,10 @@ nu =                @(rho) nuMin + (nuMax - nuMin)*rho.^q;
 dnu_drho =          @(rho) q*(nuMax - nuMin)*rho.^(q - 1);
 K = @(z, uk)        model.Kk(nu(Mf*z), uk);
 r = @(z, uk, fext)  model.fintk(nu(Mf*z), uk) - fext;
-dr_dz = @(z, uk)    model.drdz(dnu_drho(Mf*z), uk)*Mf;
+dr_dz = @(z, uk)    model.drdz(dnu_drho(Mf*z), uk)*Mf';
 
 NR_OPTIONS.solver = @solver.solveq;
-NR_OPTIONS.rtol = 1e-7;
+NR_OPTIONS.rtol = 1e-6;
 zold = x0;
 uold = zeros(ndof, 1);
 dzTol = 1e0;
@@ -28,7 +28,7 @@ K = @(z, uk)        model.Kk(nu(Mf*z), uk);
 r = @(z, uk, fext)  model.fintk(nu(Mf*z), uk) - fext;
 dr_dz = @(z, uk)    model.drdz(dnu_drho(Mf*z), uk)*Mf;
 % Setup Disp. controlled scheme
-nmax = 6;
+nmax = 10;
 solver.nsteps = nmax;
 u0 = zeros(ndof, 1);
 bc = model.bc;
@@ -49,7 +49,31 @@ if nargin < 7
 end
 s = -1/c0;
 Listener = TOListener();
-    
+
+% Numerical sensitivities
+ind = [900 1307];
+solver.statistics.del_dc = zeros(2*length(ind), 1);
+
+% Numerical sensitivities at some elements
+    function dc = numerical_dcdzf(c, z)
+        solver.forceFactorization = 1;
+        h = 1e-7;
+        dc = [];
+        for i = ind
+            % f(x + h)
+            zpe = z;
+            zpe(i) = zpe(i) + h;
+            zfpe = Mf*zpe;
+            
+            [Ppe, upe] = solve(zfpe);
+            cpe = (Ppe'*upe);
+            
+            dce = (cpe - c)/h;
+            dc = [dc; dce];
+        end
+        solver.forceFactorization = 0;
+    end
+
     % Makes an initial guess using information from dz and dfintdz
     function du0 = guess(dz)
         if dzGuess && sqrt(dz'*dz) < dzTol
@@ -165,12 +189,6 @@ Listener = TOListener();
         uout = u(:, end);
     end
 
-    function g0 = objective(F, u)
-        Fp = F(np); up = u(np);
-        c = Fp'*up;
-        g0 = s*c;
-    end
-
     % Checks if the a factorization should be forced
     function checkAngle(znew)
         if k > 0
@@ -195,11 +213,14 @@ Listener = TOListener();
         [F, u] = solve(z);
         
         % Computing objective function
-        g0 = objective(F, u);
+        Fp = F(np); up = u(np);
+        c = Fp'*up;
+        g0 = s*c;
         
         % Computing senisitivies
         [~, l] = solver.solveq(K(z, u), f_zero, xp, nmax);
-        a([nf; np]) = [l(nf); u(np)];   a = a(:);
+        a([nf; np]) = [l(nf); u(np)];
+        a = a(:);
         drdzk = dr_dz(z, u);
         g0p = s*(a'*drdzk)';
         
