@@ -19,7 +19,7 @@ if isfield(options, 'rtol')
     rtol = options.rtol;
 else
 
-rtol = 1e-9;
+rtol = 1e-7;
 end
 
 if isfield(options, 'u0')
@@ -31,7 +31,7 @@ else
 end
 
 if isfield(options, 'Verbose')
-    verbosity = 1;
+    verbosity = options.Verbose;
 else
     verbosity = 1;
 end

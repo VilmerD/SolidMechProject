@@ -5,7 +5,7 @@ ntests = numel(dzGuesses);
 for k = 1:ntests
     dzGuess = dzGuesses(k);
     maxits = maxitss(k);
-    DC;
+    SymmetricDC;
 end
 
 %% Test solution

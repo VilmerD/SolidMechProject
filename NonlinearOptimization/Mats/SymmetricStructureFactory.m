@@ -1,26 +1,25 @@
-classdef StructureFactory    
+classdef SymmetricStructureFactory < handle
     properties
         baseGeometry;
         height;
     end
     
     methods
-        function obj = StructureFactory(resolution, h)
+        function obj = SymmetricStructureFactory(resolution, h)
             if strcmpi(resolution, 'Coarse')
-                obj.baseGeometry = ...
-                    'beamFullCoarse.mat';
-            elseif strcmpi(resolution, 'Fine')
-                obj.baseGeometry = ...
-                    'beamFullFine.mat';
+                obj.baseGeometry = 'beamSymCoarse.mat';
+            else
+                obj.baseGeometry = 'beamSymFine.mat';
             end
             obj.height = h;
         end
         
-        function filename = makeStructure(obj, prescribe_force, S)
+        function filename = makeStructure(obj, prescribeDisplacement, S)
+            addpath(genpath('SolidMechanics/NonlinearOptimization/Mats'))
             load(obj.baseGeometry, 'coord', 'dof', 'edof', 'enod')
             % Basic data
             if nargin < 3
-                W  = 1; 
+                W  = 1;
                 H = 1;
             else
                 W = S(1);
@@ -46,25 +45,25 @@ classdef StructureFactory
             xcoord(:, 1) = xcoord*width;
             
             % Nodes that are welded to walls
-            vert_left = abs(xcoord - 0) < 1e-6;
-            dof_left = dof(vert_left, :);   dof_left = dof_left(:);
-            vert_right = abs(xcoord - width) < 1e-6;
-            dof_right = dof(vert_right, :); dof_right = dof_right(:);
-            dofs_zerodisp = [dof_left; dof_right];
-            z = zeros(size(dofs_zerodisp));
+            vertLeft = abs(xcoord - 0) < 1e-6;
+            dofLeft = dof(vertLeft, 1);   dofLeft = dofLeft(:);
+            vertRight = abs(xcoord - width) < 1e-6;
+            dofRight = dof(vertRight, :); dofRight = dofRight(:);
+            dofsZeroDisplacement = [dofLeft; dofRight];
+            z = zeros(size(dofsZeroDisplacement));
             
             % Displaced Nodes
-            horizontalCenter = abs(xcoord - width/2) < W*elementWidth-1e-6;
-            verticalCenter = abs(ycoord - obj.height) < H*elementHeight-1e-6;
-            verts_disp = find(horizontalCenter.*verticalCenter);
+            horizontal = abs(xcoord - 0) < W*elementWidth-1e-6;
+            vertical = abs(ycoord - obj.height) < H*elementHeight-1e-6;
+            verts_disp = find(horizontal.*vertical);
             dofs_disp = dof(verts_disp, 2);
             nz = ones(size(dofs_disp));
             
             F = zeros(ndof, 1);
-            if prescribe_force
-                bc = [dofs_zerodisp, z; dofs_disp, nz];
+            if prescribeDisplacement
+                bc = [dofsZeroDisplacement, z; dofs_disp, nz];
             else
-                bc = [dofs_zerodisp, z];
+                bc = [dofsZeroDisplacement, z];
                 F(verts_disp) = 1;
             end
             
@@ -74,11 +73,11 @@ classdef StructureFactory
             coord = [xcoord, ycoord];
             
             % Save file
-            filename = ['NonlinearOptimization/Mats/', ...
+            filename = ['SolidMechanics/NonlinearOptimization/Mats/', ...
                 obj.baseGeometry(1:end-4), 'New.mat'];
             save(filename, 'F', 'bc', 'coord', 'dof', 'edof', 'enod', ...
                 'nelm', 'ndof', 'ex', 'ey')
         end
+        
     end
 end
-

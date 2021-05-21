@@ -1,7 +1,8 @@
 function normalizeData()
 % Normalizes the dimensions to 1
-files = ["NonlinearOptimization\Mats\beamFullCoarse.mat", ...
-    "NonlinearOptimization\Mats\beamFullFine.mat"];
+addpath(genpath('SolidMechanics/NonlinearOptimization'));
+files = ["SolidMechanics/NonlinearOptimization/Mats/beamSymCoarse.mat", ...
+    "SolidMechanics/NonlinearOptimization/Mats/beamSymFine.mat"];
 
 for f = files
     load(f, 'F', 'bc', 'coord', 'dof', 'edof', 'enod')
