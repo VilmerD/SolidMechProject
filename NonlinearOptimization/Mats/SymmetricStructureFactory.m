@@ -15,7 +15,7 @@ classdef SymmetricStructureFactory < handle
         end
         
         function filename = makeStructure(obj, prescribeDisplacement, S)
-            addpath(genpath('SolidMechanics/NonlinearOptimization/Mats'))
+            addpath(genpath('NonlinearOptimization//Mats'))
             load(obj.baseGeometry, 'coord', 'dof', 'edof', 'enod')
             % Basic data
             if nargin < 3
@@ -73,7 +73,7 @@ classdef SymmetricStructureFactory < handle
             coord = [xcoord, ycoord];
             
             % Save file
-            filename = ['SolidMechanics/NonlinearOptimization/Mats/', ...
+            filename = ['NonlinearOptimization//Mats//', ...
                 obj.baseGeometry(1:end-4), 'New.mat'];
             save(filename, 'F', 'bc', 'coord', 'dof', 'edof', 'enod', ...
                 'nelm', 'ndof', 'ex', 'ey')

@@ -20,6 +20,15 @@ classdef TOListener < handle
             obj.statistics.factorizations(end + 1) = statistics.factorizations;
             obj.statistics.lineqs(end + 1) = statistics.ncalls; 
         end
+        
+        function registerCustom(obj, name, value)
+            try
+                obj.statistics.(name)(:, end + 1) = value;
+            catch e
+                obj.statistics.(name) = [];
+                obj.statistics.(name)(:, 1) = value;
+            end
+        end
     end
 end
 

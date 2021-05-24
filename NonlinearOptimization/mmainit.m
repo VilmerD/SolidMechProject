@@ -9,7 +9,7 @@ low = xmin;
 upp = xmax;
 
 maxoutit = 200;
-kkttol = 1e-4;
+kkttol = 1e-6;
 m = 1;
 n = nelm;
 epsimin = 1e-6;
