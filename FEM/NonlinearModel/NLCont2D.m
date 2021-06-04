@@ -17,6 +17,8 @@ classdef NLCont2D < handle
         t = 1;              % Thickness, used in the plain strain case
         
         % Functions to compute
+        eltype;
+        matrices;
         defgrad;            % deformation gradient
         force;              % internal force
         stiffness;          % element stiffness
@@ -51,6 +53,7 @@ classdef NLCont2D < handle
     
     methods
         function obj = NLCont2D(ec, edof, ndof, mpara, t, eltype, bc, matmod)
+            obj.eltype = eltype;
             obj.edof = edof;
             s = size(edof);
             obj.nelm = s(1);
@@ -75,13 +78,10 @@ classdef NLCont2D < handle
         % Sets the material model to either linear or nonlinear
         function setMaterialModel(obj, model)
             % which type of stress should be computed?
-            stress_type = obj.stressflag;
-            lag = obj.lagflag;
-            m = obj.mpara;
             if model == 1
                 if obj.typeflag == 1
-                    obj.stress = @(f) stressMater2D1(stress_type, m, f);
-                    obj.dmat = @(f) dMater2D1(lag, m, f);
+                    obj.stress = @stressMater2D1;
+                    obj.dmat = @dMater2D1;
                 else
                     % Placeholder for implementing material 1
                     obj.setMaterialModel(2)
@@ -90,20 +90,14 @@ classdef NLCont2D < handle
                 end
             elseif model == 2
                 if obj.typeflag == 1
-                    obj.stress = @(f) stressMater2D2(stress_type, m, f);
-                    obj.dmat = @(f) dMater2D2(lag, m, f);
+                    obj.stress = @stressMater2D2;
+                    obj.dmat = @dMater2D2;
                 else
-                    obj.stress = @(f) stressMaterAxi2(stress_type, m, f);
-                    obj.dmat = @(f) dMaterAxi2(lag, m, f);
+                    obj.stress = @stressMaterAxi2;
+                    obj.dmat = @dMaterAxi2;
                 end
             end
             obj.model = model;
-        end
-        
-        % Sets the reference configuration, used when a perturbation is
-        % introduced
-        function setEc(obj, ec)
-            obj.ec = ec;
         end
         
         % Computes the volumes of the elements
@@ -120,6 +114,7 @@ classdef NLCont2D < handle
         end
         
         % Gets the element data
+        % TODO: FIX OTHER ELEMENT TYPES TO MATCH 2D4t
         function setElementData(obj, eltype)
             % 3 node triangle total lagrangian
             if eltype == "2D3t"
@@ -171,10 +166,10 @@ classdef NLCont2D < handle
                 
                 % 4 node quadrilateral total lagrangian
             elseif eltype == "2D4t"
+                obj.matrices = obj.precomputeConstants();
                 obj.defgrad = @cont2D4ts;
-                obj.force = @(ec, ed, es) cont2D4tf(ec, obj.t, ed, es);
-                obj.stiffness = @(ec, D, ed, es) ...
-                    cont2D4te(ec, obj.t, D, ed, es);
+                obj.force = @cont2D4tf;
+                obj.stiffness = @cont2D4te;
                 
                 obj.npoints = 4;
                 obj.numint = 4;
@@ -221,6 +216,7 @@ classdef NLCont2D < handle
         end
         
         % Extracts the coordinates, deformations and dofs for the element
+        % TODO: REMOVE SUPPORT FOR THIS
         function [eck, edk, dofs] = extract(obj, type, elm, ed)
             % Finds the displacements and reference configuration for
             % this element
@@ -235,6 +231,21 @@ classdef NLCont2D < handle
             edk = ed(dofs);
             eck = reshape(Ec(elm, :), obj.npoints, 2)';
         end
+        
+        % Precomputes constant matrices
+        function M = precomputeConstants(obj)
+            M = cell(obj.nelm, 3);
+            dat = load('cont2D4N.mat', 'dN');
+            dN = dat.dN;
+            for elm = 1:obj.nelm
+                eck = reshape(obj.ec(elm, :), obj.npoints, 2)';
+                [dJ, H, B] = preComputeConstants(eck, dN);
+                M{elm, 1} = dJ;
+                M{elm, 2} = H;
+                M{elm, 3} = B;
+            end
+            
+        end
         % ----------------------------------------------------------------%
         %%%%%%%%%%%%%%%%%% Total Lagrangian setting %%%%%%%%%%%%%%%%%%
         % ----------------------------------------------------------------%
@@ -244,24 +255,27 @@ classdef NLCont2D < handle
             % ed
             fint = zeros(obj.ndof, 1);
             for elm = 1:obj.nelm
-                [eck, edk, dofs] = obj.extract("element", elm, ed);
+                dofs = obj.edof(elm, 2:end)';
+                edk = ed(dofs);
                 
                 % Computes the defgrad, if updated lagrangian use old ef
-                ef = obj.defgrad(eck, edk);
+                ef = obj.defgrad(obj.matrices{elm, 2}, edk);
                 
                 % Computes stresses
                 if obj.numint ~= 0
                     es = cell(obj.numint, 1);
                     for i = 1:obj.numint
-                        es{i} = obj.stress(ef{i});
+                        es{i} = obj.stress(obj.stressflag, obj.mpara, ef{i});
                     end
                 else
-                    es = obj.stress(ef);
+                    es = obj.stress(obj.stressflag, obj.mpara, ef);
                 end
                 
                 % Using the above data the element stiffness matrix can be
                 % computed and inserted into the correct position
-                felm = obj.force(eck, edk, es);
+                felm = obj.force(obj.matrices{elm, 2}, ...
+                    obj.matrices{elm, 3}, obj.matrices{elm, 1}, ...
+                    obj.t, ef, es);
                 fint(dofs) = fint(dofs) + felm;
             end
         end
@@ -274,27 +288,29 @@ classdef NLCont2D < handle
             
             % Iterates over the elements
             for elm = 1:obj.nelm
-                [eck, edk, dofs] = obj.extract("element", elm, ed);
+                dofs = obj.edof(elm, 2:end)';
+                edk = ed(dofs);
                 
                 % Computes the defgrad, if updated lagrangian use old ef
-                ef = obj.defgrad(eck, edk);
+                ef = obj.defgrad(obj.matrices{elm, 2}, edk);
                 
                 % Computes stresses and dmat
                 if obj.numint ~= 0
                     es = cell(obj.numint, 1);
-                    D = cell(obj.numint, 1);
                     for i = 1:obj.numint
-                        es{i} = obj.stress(ef{i});
-                        D{i} = obj.dmat(ef{i});
+                        es{i} = obj.stress(obj.stressflag, obj.mpara, ef{i});
+                        D{i} = obj.dmat(obj.lagflag, obj.mpara, ef{i});
                     end
                 else
-                    es = obj.stress(ef);
-                    D = obj.dmat(ef);
+                    es = obj.stress(obj.stressflag, obj.mpara, ef);
+                    D = obj.dmat(obj.lagflag, obj.mpara, ef);
                 end
                 
                 % Using the above data the element stiffness matrix can be
                 % computed
-                Kelm = obj.stiffness(eck, D, edk, es);
+                Kelm = obj.stiffness(obj.matrices{elm, 2}, ...
+                    obj.matrices{elm, 3}, obj.matrices{elm, 1}, ...
+                    obj.t, D, ef, es);
                 
                 % Inserting the element stiffness matrix into the correct pos
                 disp_column = dofs(:);
@@ -498,24 +514,27 @@ classdef NLCont2D < handle
             % constant(s) in k
             fint = zeros(obj.ndof, 1);
             for elm = 1:obj.nelm
-                [eck, edk, dofs] = obj.extract("element", elm, ed);
+                dofs = obj.edof(elm, 2:end)';
+                edk = ed(dofs);
                 
                 % Computes the defgrad, if updated lagrangian use old ef
-                ef = obj.defgrad(eck, edk);
+                ef = obj.defgrad(obj.matrices{elm, 2}, edk);
                 
                 % Computes stresses
                 if obj.numint ~= 0
                     es = cell(obj.numint, 1);
                     for i = 1:obj.numint
-                        es{i} = obj.stress(ef{i});
+                        es{i} = obj.stress(obj.stressflag, obj.mpara, ef{i});
                     end
                 else
-                    es = obj.stress(ef);
+                    es = obj.stress(obj.stressflag, obj.mpara, ef);
                 end
                 
                 % Using the above data the element stiffness matrix can be
                 % computed and inserted into the correct position
-                felm = k(elm)*obj.force(eck, edk, es);
+                felm = k(elm)*obj.force(obj.matrices{elm, 2}, ...
+                    obj.matrices{elm, 3}, obj.matrices{elm, 1}, ...
+                    obj.t, ef, es);
                 fint(dofs) = fint(dofs) + felm;
             end
         end
@@ -528,27 +547,29 @@ classdef NLCont2D < handle
             
             % Iterates over the elements
             for elm = 1:obj.nelm
-                [eck, edk, dofs] = obj.extract("element", elm, ed);
+                dofs = obj.edof(elm, 2:end)';
+                edk = ed(dofs);
                 
                 % Computes the defgrad, if updated lagrangian use old ef
-                ef = obj.defgrad(eck, edk);
+                ef = obj.defgrad(obj.matrices{elm, 2}, edk);
                 
                 % Computes stresses and dmat
                 if obj.numint ~= 0
                     es = cell(obj.numint, 1);
-                    D = cell(obj.numint, 1);
                     for i = 1:obj.numint
-                        es{i} = obj.stress(ef{i});
-                        D{i} = obj.dmat(ef{i});
+                        es{i} = obj.stress(obj.stressflag, obj.mpara, ef{i});
+                        D{i} = obj.dmat(obj.lagflag, obj.mpara, ef{i});
                     end
                 else
-                    es = obj.stress(ef);
-                    D = obj.dmat(ef);
+                    es = obj.stress(obj.stressflag, obj.mpara, ef);
+                    D = obj.dmat(obj.lagflag, obj.mpara, ef);
                 end
                 
                 % Using the above data the element stiffness matrix can be
                 % computed
-                Kelm = k(elm)*obj.stiffness(eck, D, edk, es);
+                Kelm = k(elm)*obj.stiffness(obj.matrices{elm, 2}, ...
+                    obj.matrices{elm, 3}, obj.matrices{elm, 1}, ...
+                    obj.t, D, ef, es);
                 
                 % Inserting the element stiffness matrix into the correct pos
                 disp_column = dofs(:);
@@ -561,23 +582,26 @@ classdef NLCont2D < handle
         function y = drdz(obj, k, ed)
             y = zeros(obj.ndof, obj.nelm);
             for elm = 1:obj.nelm
-                [eck, edk, dofs] = obj.extract("element", elm, ed);
+                dofs = obj.edof(elm, 2:end)';
+                edk = ed(dofs);
                 
                 % Computes the defgrad
-                ef = obj.defgrad(eck, edk);
+                ef = obj.defgrad(obj.matrices{elm, 2}, edk);
                 
                 % Computes stresses
                 if obj.numint ~= 0
                     es = cell(obj.numint, 1);
                     for i = 1:obj.numint
-                        es{i} = obj.stress(ef{i});
+                        es{i} = obj.stress(obj.stressflag, obj.mpara, ef{i});
                     end
                 else
-                    es = obj.stress(ef);
+                    es = obj.stress(obj.stressflag, obj.mpara, ef);
                 end
                 
                 % Using the above data the element forces can be computed
-                felm = obj.force(eck, edk, es);
+                felm = obj.force(obj.matrices{elm, 2}, ...
+                    obj.matrices{elm, 3}, obj.matrices{elm, 1}, ...
+                    obj.t, ef, es);
                 y(dofs, elm) = felm*k(elm);
             end
             y = sparse(y);

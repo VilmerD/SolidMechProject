@@ -1,0 +1,23 @@
+function fe = cont2D4tf(H, B, dJ, t, defgrad, stress)
+% Computes the element forces
+
+function AH = Amat(F, Hk)
+    F = F - [1 0 0 1]';
+    A = [F(1) 0      F(3) 0;                    
+         0    F(2)   0    F(4);
+         F(2) F(1)   F(4) F(3)];
+    AH(1, :) = F(1)*Hk(1, :) + F(3)*Hk(3, :);
+    AH(2, :) = F(2)*Hk(2, :) + F(4)*Hk(4, :);
+    AH(3, :) = 
+end   
+
+fe = zeros(8, 1);
+for k = 1:4
+    s = stress{k};
+    
+    Ak = Amat(defgrad{k});
+    Bk = B{k} + Ak*H{k};
+    
+    fe = fe + Bk'*s*dJ{k}*t;
+end
+end

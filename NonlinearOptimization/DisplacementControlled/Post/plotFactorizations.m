@@ -6,7 +6,8 @@ f2 = figure;
 ax2 = nexttile;
 imin = 180; imax = 201;
 ind = imin:imax;
-indsol = 1:2:17;
+indsol = [1 2];
+step = 1;
 load('solutions.mat');
 nameform = ['$f_{\\textnormal{fact.}}$: %02i, ', ...
     '$\\textnormal{n}_{\\textnormal{basis}}$: %02i'];
@@ -30,8 +31,8 @@ for i = 1:length(indsol)
         line = '^--';
         sign = '^';
     else
-        color = colors(ceil(i/2));
-        sign = signs(mod(i-1, 2) + 1);
+        color = colors(ceil(i/step));
+        sign = signs(mod(i-1, step) + 1);
         line = [sign, '-'];
     end
     
@@ -51,5 +52,8 @@ xlabel(ax2, 'Iteration')
 ylabel(ax2, 'Compliance')
 % hold(ax1, 'off')
 % axis(ax1, [0 lineqmax 0 factmax]);
+title(ax1, ['Number of linear equation system solutions versus', ...
+    'number of factorizations after 200 iterations']),
 figure(f1), leg1 = legend('Location', 'best', 'Interpreter', 'Latex');
+set(f1, 'Position', [300 300 16*60 9*60])
 figure(f2), leg2 = legend('Location', 'best', 'Interpreter', 'Latex');

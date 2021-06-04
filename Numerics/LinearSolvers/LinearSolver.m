@@ -9,7 +9,7 @@ classdef LinearSolver < handle
         iterationsSinceFactorization;
         forceFactorization = 1;
         maxits;
-        nBasis;
+        nbasis;
         
         % Solver statistics such as number of factorizations and number of
         % calls
@@ -17,11 +17,11 @@ classdef LinearSolver < handle
     end
     
     methods
-        function obj = LinearSolver(maxits, nBasis)
+        function obj = LinearSolver(maxits, nbasis)
             obj.maxits = maxits;
             obj.iterationsSinceFactorization = maxits;
             
-            obj.nBasis = nBasis;
+            obj.nbasis  = nbasis;
             obj.statistics = struct('ncalls', 0, ...
                                     'factorizations', 0);
         end
@@ -53,7 +53,7 @@ classdef LinearSolver < handle
             % If direct solvers is used maxits is 1, otherwise CA is used
             if obj.forceFactorization || ...
                     obj.iterationsSinceFactorization >= obj.maxits
-                obj.iterationsSinceFactorization = 1;
+                obj.iterationsSinceFactorization = 0;
                 obj.statistics.factorizations = ...
                     obj.statistics.factorizations + 1;
                 obj.Kold{n} = Kff;
@@ -61,7 +61,7 @@ classdef LinearSolver < handle
                 % Try to do a cholesky, if the matrix is neg def do lu
                 % instead.
                 try
-                    R = chol(Kff);
+                    R = cholWrapper(Kff);
                     obj.Rold{n} = R;
                     uf = R\(R'\b);
                 catch
@@ -77,15 +77,13 @@ classdef LinearSolver < handle
                 
                 % Reusing previous factorization R of the submatrix A
             else
-                obj.iterationsSinceFactorization = ...
-                    obj.iterationsSinceFactorization + 1;
                 R = obj.Rold{n};
                 dK = Kff - obj.Kold{n};
                 % Generating basis vectors
                 
                 % If Knew = Kold, then dK = 0 and CA fails since the space
                 % is spanned by only 1 vector.
-                V = CA(R, Kff, dK, b, obj.nBasis);
+                V = CA(R, Kff, dK, b, obj.nbasis);
                 
                 % Projecting b onto the basis for the solution
                 z = V'*b;
@@ -106,6 +104,8 @@ classdef LinearSolver < handle
             obj.statistics.ncalls = 0;
             obj.statistics.factorizations = 0;
             obj.forceFactorization = 0;
+            obj.iterationsSinceFactorization = ...
+                obj.iterationsSinceFactorization + 1;
         end
         
     end

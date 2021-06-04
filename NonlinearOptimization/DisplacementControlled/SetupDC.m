@@ -23,10 +23,11 @@ NR_OPTIONS.rtol = 1e-6;
 zold = x0;
 dzTol = 1e0;
 drdzk = zeros(ndof, nelm);
+MAXITS_MULTIPLICATION_FREQUENCY = 35;
 
 % Setup Disp. controlled scheme
 % If newton doesn't converge at the first optimization step increase nmax!!
-nmax = 15;
+nmax = 65;
 solver.nsteps = nmax;
 u0 = zeros(ndof, 1);
 uold = u0;
@@ -42,37 +43,6 @@ f_zero = zeros(ndof, 1);
 k = 0;
 s = 1;
 Listener = TOListener();
-
-% Numerical sensitivities
-ind = [547 588];
-dcdz = zeros(201, numel(ind));
-
-% Numerical sensitivities at some elements
-    function dc = numerical_dcdz(z)
-        factorization = solver.forceFactorization;
-        solver.forceFactorization = 1;
-        h = sqrt(eps);
-        dc = zeros(numel(ind), 1);
-        for i = ind
-            % f(x + h)
-            zpe = z;
-            zpe(i) = zpe(i) + h;
-            [Ppe, upe] = solve(zpe);
-            cpe = (Ppe(np)'*upe(np));
-            
-            % f(x - h)
-            zme = z;
-            zme(i) = zme(i) - h;
-            [Pme, ume] = solve(zme);
-            cme = (Pme(np)'*ume(np));
-            
-            % dci
-            dci = (cpe - cme)/(2*h);
-            dc(i) = dci;
-        end
-        solver.forceFactorization = factorization;
-    end
-
 
     % Makes an initial guess using information from dz and dfintdz
     function du0 = guess(dz)
@@ -229,11 +199,15 @@ dcdz = zeros(201, numel(ind));
         g1p = volumes'*Mf/Vmax;
         
         k = k + 1;
+        if mod(k, MAXITS_MULTIPLICATION_FREQUENCY) == 0
+            solver.maxits = min(solver.maxits*2, 64);
+        end
         stats = solver.getStats();
         stats.g0 = g0;
         stats.g1 = g1;
         stats.design = z;
         Listener.registerUpdate(stats);
+        Listener.registerCustom('sensitivities', g0p)
     end
 obj = @cmin;
 end

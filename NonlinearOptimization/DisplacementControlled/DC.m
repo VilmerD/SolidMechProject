@@ -1,6 +1,8 @@
 % FEM Model
 height = 100e-3;
-geomfile = 'NonlinearOptimization//Mats//beamSymCoarseNew.mat';
+resolution = 'Fine';
+F = SymmetricStructureFactory(resolution, height);
+geomfile = F.makeStructure(1, [2, 2]);
 load(geomfile);
 
 eltype = '2D4t';
@@ -18,12 +20,13 @@ model.fr = filterRadius;
 vq = 0.3;
 x0 = ones(nelm, 1)*vq;
 
-amountDisplaced = -0.5;
+amountDisplaced = -0.7;
+
 xp = bc;
 xp(:, 2) = xp(:, 2)*height*amountDisplaced;
 
-if ~exist('solver') || ~isa(solver, 'LinearSolver')
-    solver = LinearSolver(16, 8);
+if ~exist('solver', 'var') || ~isa(solver, 'LinearSolver')
+    solver = LinearSolver(2, 10);
 end
 
 [objective, Listener] = SetupDC(model, solver, vq, xp, x0);
@@ -36,8 +39,8 @@ mmamain;
 stats = Listener.statistics;
 d = datevec(now); date = sprintf('%0.2i%0.2i%0.2i%0.2i', d(2:5));
 data = struct('stats', stats, ...
-              'maxits', maxits, ...
-              'nbasis', nbasis, ...
+              'maxits', solver.maxits, ...
+              'nbasis', solver.nbasis, ...
               'vq', vq, ...
               'filterRadius', filterRadius, ...
               'amountDisplaced', amountDisplaced, ...

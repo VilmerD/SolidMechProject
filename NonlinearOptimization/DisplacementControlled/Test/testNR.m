@@ -2,7 +2,7 @@
 h = 100e-3;
 resolution = 'Fine';
 F = SymmetricStructureFactory(resolution, h);
-geomfile = F.makeStructure(1, [2, 2]);
+geomfile = F.makeStructure(1, [1, 1]);
 load(geomfile);
 
 eltype = '2D4t';
@@ -20,7 +20,7 @@ xp(:, 2) = xp(:, 2)*dmax*h;
 %% Test displacement controlled algo
 K = @(u) model.K(u);
 r = @(u, f) model.fint(u) - f;
-nmax = 6;
+nmax = 20;
 m = model.ndof;
 options = struct('solver', @solver.solveq);
 [P, u] = NRDC(K, r, xp, nmax, m, options);

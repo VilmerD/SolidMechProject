@@ -1,13 +1,15 @@
 %% Plot
-xmin = 100; xmax = 201;
-xax = xmin:xmax;
+f = figure();
+ax = nexttile;
+xmin = 1; xmax = 201;
+xx = xmin:xmax;
 g0 = data.stats.g0;
 g1 = data.stats.g1;
 yyaxis left
-plot(xax, abs(g0(xax)))
+plot(ax, xx, abs(g0(xx)))
 xlabel('Iteration number'), ylabel('Compliance')
 axis tight
 
 yyaxis right
-plot(xax, g1(xax))
+plot(ax, xx, g1(xx))
 ylabel('Volume constraint')
