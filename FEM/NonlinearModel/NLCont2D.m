@@ -284,7 +284,9 @@ classdef NLCont2D < handle
         function Kt = K(obj, ed)
             % Stiffness(a, ) computes the stiffness matrix of the simple system
             % given the displacements a and force P
-            Kt = zeros(obj.ndof);
+            n = obj.ndof;
+            m = obj.npoints;
+            Kt = spalloc(n, n, 4*n*m - n - 2*m*(2*m - 1));
             
             % Iterates over the elements
             for elm = 1:obj.nelm
@@ -543,7 +545,9 @@ classdef NLCont2D < handle
             % Kk(k, ed) computes the stiffness matrix given the
             % displacements ed and premultiplies each element stiffness
             % with the constant(s) in k
-            Kt = zeros(obj.ndof);
+            n = obj.ndof;
+            m = obj.npoints;
+            Kt = spalloc(n, n, 4*n*m - n - 2*m*(2*m - 1));
             
             % Iterates over the elements
             for elm = 1:obj.nelm
@@ -556,6 +560,7 @@ classdef NLCont2D < handle
                 % Computes stresses and dmat
                 if obj.numint ~= 0
                     es = cell(obj.numint, 1);
+                    D = cell(obj.numint, 1);
                     for i = 1:obj.numint
                         es{i} = obj.stress(obj.stressflag, obj.mpara, ef{i});
                         D{i} = obj.dmat(obj.lagflag, obj.mpara, ef{i});
@@ -576,11 +581,10 @@ classdef NLCont2D < handle
                 Kt(disp_column, disp_column) = Kt(disp_column, disp_column)...
                     + Kelm;
             end
-            Kt = sparse(Kt);
         end
         
         function y = drdz(obj, k, ed)
-            y = zeros(obj.ndof, obj.nelm);
+            y = spalloc(obj.ndof, obj.nelm, 2*obj.npoints*obj.ndof);
             for elm = 1:obj.nelm
                 dofs = obj.edof(elm, 2:end)';
                 edk = ed(dofs);

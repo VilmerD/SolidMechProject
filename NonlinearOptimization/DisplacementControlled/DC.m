@@ -20,7 +20,7 @@ model.fr = filterRadius;
 vq = 0.3;
 x0 = ones(nelm, 1)*vq;
 
-amountDisplaced = -0.7;
+amountDisplaced = -0.5;
 
 xp = bc;
 xp(:, 2) = xp(:, 2)*height*amountDisplaced;

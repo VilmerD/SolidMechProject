@@ -1,6 +1,6 @@
 %% Load data 
 h = 100e-3;
-resolution = 'Fine';
+resolution = 'Coarse';
 F = SymmetricStructureFactory(resolution, h);
 geomfile = F.makeStructure(1, [1, 1]);
 load(geomfile);
@@ -20,12 +20,8 @@ xp(:, 2) = xp(:, 2)*dmax*h;
 %% Test displacement controlled algo
 K = @(u) model.K(u);
 r = @(u, f) model.fint(u) - f;
-nmax = 20;
+nmax = 10;
 m = model.ndof;
 options = struct('solver', @solver.solveq);
 [P, u] = NRDC(K, r, xp, nmax, m, options);
 uend = u(:, end);
-%% Plot results
-ue = uend(model.edof(:, 2:end));
-fill((ex + ue(:, 1:2:end))', (ey + ue(:, 2:2:end))', 1);
-axis image

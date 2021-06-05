@@ -1,23 +1,23 @@
 function D = dMater2D2(flag, mpara, defgrad)
-Ey = mpara(1);      nu = mpara(2);
-mu = Ey/(1 + nu)/2; kappa = Ey/(1 - 2*nu)/3;
-
+% Fast way of computing jacobian of deformation gradient not using matrices
 J = defgrad(1)*defgrad(4) - defgrad(2)*defgrad(3);
 
-efsq = defgrad.^2;
-C1 = efsq(1) + efsq(3);
+% Explicitly computing the inverse of the Cauchy-Green tensor is faster
+% than using matlabs routine. Can also reuse some information when
+% computing the trace!
+C1 = defgrad(1)^2 + defgrad(3)^2;
 C2 = defgrad(1)*defgrad(2) + defgrad(3)*defgrad(4);
-C4 = efsq(2) + efsq(4);
+C4 = defgrad(2)^2 + defgrad(4)^2;
 detCs = C1*C4 - C2^2;
-tc = (sum(efsq) + 1);
+tc = (C1 + C4 + 1);
 
-a1 = kappa*J^2 + 2*mu/9*J^(-2/3)*tc;
-a2 = 2*mu/3*J^(-2/3);
-a3 = mu/3*J^(-2/3)*tc - kappa/2 * (J^2 - 1);
+a2 = mpara(1)/(1 + mpara(2))/3*J^(-2/3);
+a1 = mpara(1)/(1 - 2*mpara(2))/3*J^2 + a2*tc/3;
+a3 = a2*tc/2 - mpara(1)/(1 - 2*mpara(2))/3/2 * (J^2 - 1);
 
 
-% Total Lagrangian
 if flag == 1
+    % Total Lagrangian
     a1 = a1/detCs^2;
     a2 = a2/detCs;
     a3 = a3/detCs^2;
@@ -30,9 +30,8 @@ if flag == 1
     D = [D1 D2 D3
          D2 D4 D5
          D3 D5 D6];
-
-    % Updated Lagrangian
 else
+    % Updated Lagrangian
     cinv = [C4  -C2 0
             -C2 C1  0
             0   0   detCs]/detCs;

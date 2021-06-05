@@ -27,7 +27,7 @@ MAXITS_MULTIPLICATION_FREQUENCY = 35;
 
 % Setup Disp. controlled scheme
 % If newton doesn't converge at the first optimization step increase nmax!!
-nmax = 65;
+nmax = 25;
 solver.nsteps = nmax;
 u0 = zeros(ndof, 1);
 uold = u0;
