@@ -15,7 +15,7 @@ for k = 1:n
     
     St = zeros(m, 1);
     for i = 1:2:2*size(coord, 1)
-        [c0, ~] = find(edof(:, 2:7) == i);
+        [c0, ~] = find(edof(:, 2:end) == i);
         St(i) = sum(Selm(c0)) / size(c0, 1);
     end
     S(:, k) = St;

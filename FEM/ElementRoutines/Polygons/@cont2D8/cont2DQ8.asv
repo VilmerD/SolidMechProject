@@ -1,0 +1,24 @@
+classdef cont2DQ8 < abstractElement
+    methods
+        function obj = cont2DQ8()
+            obj.npoints = 8;
+            obj.numint = 9;
+            
+            dat = load('cont2D8N.mat', dN);
+            obj.baseFuncs = dat.dN;
+        end
+        
+        area = cont2D8A(dJ);
+        
+        matrices = cont2D8pc(ec, dN);
+        
+        stress = cont2D8ts(H, ed);
+        
+        force = cont2D8tf(H, B, dJ, t, defgrad, stress);
+        
+        stiffness = cont2D8te(H, B, dJ, t, D, defgrad, stress);
+        
+        function 
+    end
+end
+

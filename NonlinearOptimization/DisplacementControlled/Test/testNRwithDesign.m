@@ -1,31 +1,45 @@
 %% Load data 
-h = 0.1;
-resolution = 'Fine';
-height = 100e-3;
-load('solutions.mat');
-z = solutions{end}.stats.designs(:, end);
+h = 100e-3;
+load(geomfile);
+z = xk;
 
 %% Make model instance
-matmod = 2;
-eltype = '2D4t';
-t = 1e-3;
 mpara = [210e9, 0.3];
-model = NLCont2D([ex ey], edof, ndof, mpara, t, eltype, bc, matmod);
-
+material = NHCont(1, mpara);
+t = 1e-3;
+model = NLCont2D([ex ey], edof, ndof, t, element, material);
+solver = LinearSolver(0, 0);
 %% Setup displacement controlled data
 dmax = -0.5;
 xp = bc;
 xp(:, 2) = xp(:, 2)*dmax*h;
 
 %% Test displacement controlled algo
-K = @(u) model.Kk(z, u);
-r = @(u, f) model.fintk(z, u) - f;
+K = @() model.K(z);
+r = @(u, f) model.fint(u, z) - f;
 nmax = 12;
 m = model.ndof;
 options = struct();
-[P, u] = NRDC(K, r, xp, nmax, m, options);
+options.solver = @solver.solveq;
+[P, u] = NRDCFAST(K, r, xp, nmax, m, options);
 uend = u(:, end);
 %% Plot results
 ue = uend(model.edof(:, 2:end));
-fill((ex + ue(:, 1:2:end))', (ey + ue(:, 2:2:end))', z);
-axis image
+edx = ue(:, 1:2:end);
+edy = ue(:, 2:2:end);
+
+%% Stress
+S = model.stresses(uend);
+mask = z < 1e-2;
+S(mask, :) = 0;
+Snod = zeros(ndof, 1);
+for i = 1:2:ndof
+    [r, c] = find(edof(:, 2:end) == i);
+    Snod(i) = mean(S(r));
+end
+mask = z > 1e-2;
+Selm = Snod(edof(:, 2:2:end));
+x = ex + edx;
+y = ey + edy;
+fill(x(mask, :)', y(mask, :)', Selm(mask, :)', 'Linestyle', 'None');
+axis image;

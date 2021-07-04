@@ -1,29 +1,31 @@
-function [obj, Listener] = SetupDC(model, solver, vq, xp, x0)
+function [obj, Listener, x0] = SetupDC(model, solver, xp)
 % Filtering
 Mf = model.dfilter();
 
 % Some basic model stuff
+vq = 0.3;
 volumes = model.volumes();
 Vmax = sum(volumes)*vq;
 ndof = model.ndof;
 nelm = model.nelm;
+x0 = ones(nelm, 1)*vq;
 
 % Model functions and stuff
 % SIMP
-nuMin = 210e4;      nuMax = 210e9;
+nuMin = 1e-5;      nuMax = 1;
 q = 3;
 nu =                @(rho) nuMin + (nuMax - nuMin)*rho.^q;
 dnu_drho =          @(rho) q*(nuMax - nuMin)*rho.^(q - 1);
-K = @(z, uk)        model.Kk(nu(Mf*z), uk);
-r = @(z, uk, fext)  model.fintk(nu(Mf*z), uk) - fext;
-dr_dz = @(z, uk)    model.drdz(dnu_drho(Mf*z), uk)*Mf;
+K = @(z)            model.K(nu(Mf*z));
+r = @(z, uk, fext)  model.fint(uk, nu(Mf*z)) - fext;
+dr_dz = @(z)        model.drdz(dnu_drho(Mf*z))*Mf;
 
 NR_OPTIONS.solver = @solver.solveq;
 NR_OPTIONS.rtol = 1e-6;
 zold = x0;
 dzTol = 1e0;
-drdzk = zeros(ndof, nelm);
-MAXITS_MULTIPLICATION_FREQUENCY = 35;
+drdzk = 0;
+MAXITS_MULTIPLICATION_FREQUENCY = 50;
 
 % Setup Disp. controlled scheme
 % If newton doesn't converge at the first optimization step increase nmax!!
@@ -34,8 +36,7 @@ uold = u0;
 cothmax = 1 - 1e-3;
 
 % Free and prescribed nodes
-bc = model.bc;
-np = bc(:, 1);
+np = xp(:, 1);
 nf = (1:ndof)';
 nf(np) = [];
 f_zero = zeros(ndof, 1);
@@ -76,19 +77,6 @@ Listener = TOListener();
         restarts = 0;
         [P, u] = solveInner(zold, dz, du0);
         
-        % If the inner solver fails, solve in two steps with respect to z
-        if numel(P) == 1
-            restarts = 0;
-            nstart = 1;
-            ustart = u0;
-            [~, u] = solveInner(zold, dz/2, 0);
-            
-            restarts = 0;
-            nstart = nmax;
-            ustart = u(:, nstart);
-            [~, u] = solveInner(zold + dz/2, dz/2, 0);
-        end
-        
         % Inner function that solves the equilibrium equations, and resets
         % if the iteration doesn't converge
         function [P, u] = solveInner(zold, dz, du0)
@@ -96,7 +84,7 @@ Listener = TOListener();
             try
                 NR_OPTIONS.n0 = nstart;
                 NR_OPTIONS.u0 = ustart + du0;
-                [P, u] = NRDC(@(u) K(znew, u), @(u, f) r(znew, u, f), ...
+                [P, u] = NRDCFAST(@() K(znew), @(u, f) r(znew, u, f), ...
                     xp, nmax, ndof, NR_OPTIONS);
             catch ME
                 % For some reason there was an error and we need to adjust
@@ -147,6 +135,12 @@ Listener = TOListener();
             end
         end
         
+        if numel(P) == 1
+            errStruct.message = 'Newton failed to converge';
+            errStruct.id = 'NR:ConverganceError';
+            error(errStruct);
+        end
+        
         % Update the old solution z and u
         uold = u;
         zold = z;
@@ -187,15 +181,15 @@ Listener = TOListener();
         g0 = s*c;
         
         % Computing senisitivies
-        [~, l] = solver.solveq(K(z, u), f_zero, xp, nmax);
-        a([nf; np]) = [l(nf); u(np)];
+        [~, l] = solver.solveq(K(z), f_zero, xp, nmax);
+        a([nf; np]) = [l(nf); up];
         a = a(:);
-        drdzk = dr_dz(z, u);
+        drdzk = dr_dz(z);
         dcdz = (a'*drdzk)';
         g0p = s*dcdz;
                 
         % Computing the volume constraint and it's sensitivities
-        g1 = volumes'*Mf*z/Vmax - 1;
+        g1 = volumes'*Mf/Vmax*z - 1;
         g1p = volumes'*Mf/Vmax;
         
         k = k + 1;

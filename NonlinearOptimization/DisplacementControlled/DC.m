@@ -1,25 +1,32 @@
-% FEM Model
-height = 100e-3;
-resolution = 'Fine';
-F = SymmetricStructureFactory(resolution, height);
-geomfile = F.makeStructure(1, [2, 2]);
+%% FEM Model
+% Load data 
+element = cont2D4();
+
+q = 3;
+width = 300e-3;
+height = width/q;    
+xres = 120;
+yres = xres/q;
+F = StructureFactory([xres, yres], [width, height]);
+F.addBoundaryCondition(@(x, y) abs(x - 0) < 1e-6, 1, 0);
+F.addBoundaryCondition(@(x, y) abs(x - width) < 1e-6, [1, 2], 0);
+F.addBoundaryCondition(@(x, y) logical((abs(x - 0) < 2*width/xres + 1e-6).*...
+    (abs(y - height) < 1e-6)), 2, 1);
+
+geomfile = F.make(element);
 load(geomfile);
 
-eltype = '2D4t';
-t = 1e-3;
-mpara = [1, 0.3];
-materialModel = 2;
+mpara = [210e9, 0.3];
+material = NHCont(1, mpara);
 
-model = NLCont2D([ex, ey], edof, ndof, mpara, t, eltype, bc, materialModel);
+t = 1e-3;
+model = NLCont2D([ex, ey], edof, ndof, t, element, material);
 
 % Filtering
 filterRadius = 15e-3;
 model.fr = filterRadius;
 
 %% Linear Solver and setting up probelm
-vq = 0.3;
-x0 = ones(nelm, 1)*vq;
-
 amountDisplaced = -0.5;
 
 xp = bc;
@@ -29,7 +36,7 @@ if ~exist('solver', 'var') || ~isa(solver, 'LinearSolver')
     solver = LinearSolver(2, 10);
 end
 
-[objective, Listener] = SetupDC(model, solver, vq, xp, x0);
+[objective, Listener, x0] = SetupDC(model, solver, xp);
 
 %% Solving problem using MMA
 mmainit;
@@ -41,11 +48,12 @@ d = datevec(now); date = sprintf('%0.2i%0.2i%0.2i%0.2i', d(2:5));
 data = struct('stats', stats, ...
               'maxits', solver.maxits, ...
               'nbasis', solver.nbasis, ...
-              'vq', vq, ...
               'filterRadius', filterRadius, ...
               'amountDisplaced', amountDisplaced, ...
               'date', date, ...
-              'geomfile', geomfile);
+              'geomfile', geomfile, ...
+              'element', element);
+              
 
 addpath(genpath('NonlinearOptimization'))
 try

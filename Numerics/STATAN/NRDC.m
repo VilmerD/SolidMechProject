@@ -80,15 +80,8 @@ for n = n0:nmax
     else
         s = solveq(K(un), -resn, load);
     end
-    % Line search
-    r0 = -s'*resn;
-    r1 = -s'*r(un + s, 0);
-    bapp = r0/(r0 - r1);
-    b = max(0.3, min(bapp, 3));
-    dun = s;
-    dun(nf) = b*s(nf);
     
-    un = un + dun;
+    un = un + s;
     resn = r(un, 0);                % Residual foces
     r_free = norm(resn(nf));        % Norm of residual in free nodes
     
@@ -109,15 +102,7 @@ for n = n0:nmax
         else
             s = solveq(K(un), -resn, correct);
         end
-        % Line search
-        r0 = -s'*resn;
-        r1 = -s'*r(un + s, 0);
-        bapp = r0/(r0 - r1);
-        b = max(0.3, min(bapp, 3));
-        dun = s;
-        dun(nf) = b*s(nf);
-        
-        un = un + dun;
+        un = un + s;
         resn = r(un, 0);
         r_free = norm(resn(nf));
         

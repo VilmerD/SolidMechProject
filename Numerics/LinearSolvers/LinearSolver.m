@@ -56,13 +56,15 @@ classdef LinearSolver < handle
                 obj.iterationsSinceFactorization = 0;
                 obj.statistics.factorizations = ...
                     obj.statistics.factorizations + 1;
-                obj.Kold{n} = Kff;
                 
                 % Try to do a cholesky, if the matrix is neg def do lu
                 % instead.
                 try
                     R = cholWrapper(Kff);
-                    obj.Rold{n} = R;
+                    if n > obj.nsteps - 3
+                        obj.Kold{n} = Kff;
+                        obj.Rold{n} = R;
+                    end
                     uf = R\(R'\b);
                 catch
                     % Does not really work yet as i cannot save both U and
