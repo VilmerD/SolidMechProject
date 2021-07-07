@@ -1,24 +1,24 @@
 function [obj, Listener, x0] = SetupDC(model, solver, xp)
 % Filtering
-Mf = model.dfilter();
-
+SF = SIMPFilter(1, 1e-5, 3);
+DF = DensityFilter(model.ec, model.volumes()/model.t, 15e-3);
+DesignF = SF * DF;
+VolumeF = DF;
+    
 % Some basic model stuff
 vq = 0.3;
-volumes = model.volumes();
-Vmax = sum(volumes)*vq;
+volumes_normalized = model.volumes()'/(sum(model.volumes())*vq);
+g1func = @(z) volumes_normalized * VolumeF.forward(z) - 1;
+g1pfunc = @(z) volumes_normalized * VolumeF.backward(z);
+
 ndof = model.ndof;
 nelm = model.nelm;
 x0 = ones(nelm, 1)*vq;
 
 % Model functions and stuff
-% SIMP
-nuMin = 1e-5;      nuMax = 1;
-q = 3;
-nu =                @(rho) nuMin + (nuMax - nuMin)*rho.^q;
-dnu_drho =          @(rho) q*(nuMax - nuMin)*rho.^(q - 1);
-K = @(z)            model.K(nu(Mf*z));
-r = @(z, uk, fext)  model.fint(uk, nu(Mf*z)) - fext;
-dr_dz = @(z)        model.drdz(dnu_drho(Mf*z))*Mf;
+K = @(z)            model.K(DesignF.forward(z));
+r = @(z, uk, fext)  model.fint(uk, DesignF.forward(z)) - fext;
+dr_dz = @(z)        model.drdE()*DesignF.backward(z);
 
 NR_OPTIONS.solver = @solver.solveq;
 NR_OPTIONS.rtol = 1e-6;
@@ -189,8 +189,8 @@ Listener = TOListener();
         g0p = s*dcdz;
                 
         % Computing the volume constraint and it's sensitivities
-        g1 = volumes'*Mf/Vmax*z - 1;
-        g1p = volumes'*Mf/Vmax;
+        g1 = g1func(z);
+        g1p = g1pfunc(z);
         
         k = k + 1;
         if mod(k, MAXITS_MULTIPLICATION_FREQUENCY) == 0

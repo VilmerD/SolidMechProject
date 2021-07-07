@@ -22,10 +22,6 @@ classdef NLCont2D < handle
         
         % Element
         element
-        
-        % Structural optimization
-        w = @(x, r) max(0, 1 - x/r);
-        fr;
     end
     
     methods
@@ -159,7 +155,7 @@ classdef NLCont2D < handle
         end
         
         % Computes the sensitivity of the residual
-        function y = drdz(obj, k)
+        function y = drdE(obj)
             nne = (obj.element.npoints*2);
             It = zeros(nne*obj.nelm, 1);
             Jt = It;
@@ -172,7 +168,7 @@ classdef NLCont2D < handle
                 es = obj.esm{elm};
                 
                 % Using the above data the element forces can be computed
-                felm = k(elm)*obj.element.force(obj.matrices{elm, 2}, ...
+                felm = obj.element.force(obj.matrices{elm, 2}, ...
                     obj.matrices{elm, 3}, obj.matrices{elm, 1}, obj.t, ef, es);
                 
                 k0 = (elm - 1)*nne + 1; ke = elm*nne;
@@ -181,40 +177,6 @@ classdef NLCont2D < handle
                 X(k0:ke, 1) = felm;
             end
             y = sparse(It, Jt, X);
-        end
-        
-        % Density filter matrix
-        function Mf = dfilter(obj)
-            if obj.fr > 1e-6
-                wr = @(x) obj.w(x, obj.fr);
-                a = obj.volumes()/obj.t;
-                np = obj.element.npoints;
-                xe = [mean(obj.ec(:, 1:np), 2)'; 
-                    mean(obj.ec(:, np+1:2*np), 2)']';
-                
-                Im = zeros(obj.nelm*ceil(2*pi*obj.fr^2/a(1)), 1);
-                Jm = Im;
-                X = Im;
-                k = 1;
-                for elm = 1:obj.nelm
-                    dxi = xe(elm, :) - xe;
-                    ndxi = sqrt(dxi(:, 1).^2 + dxi(:, 2).^2);
-                    wi = wr(ndxi).*a;
-                    wi = wi/sum(wi);
-                    
-                    mask = wi > 0;
-                    [ii, ~] = find(mask);
-                    n = length(ii);
-                    Im(k:k+n-1) = ii;
-                    Jm(k:k+n-1) = elm;
-                    X(k:k+n-1) = wi(mask);
-                    k = k+n;
-                end
-                mask = Im > 0;
-                Mf = sparse(Im(mask), Jm(mask), X(mask));
-            else
-                Mf = 1;
-            end
         end
     end
 end

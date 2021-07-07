@@ -5,7 +5,7 @@ element = cont2D4();
 q = 3;
 width = 300e-3;
 height = width/q;    
-xres = 120;
+xres = 45;
 yres = xres/q;
 F = StructureFactory([xres, yres], [width, height]);
 F.addBoundaryCondition(@(x, y) abs(x - 0) < 1e-6, 1, 0);
@@ -21,11 +21,6 @@ material = NHCont(1, mpara);
 
 t = 1e-3;
 model = NLCont2D([ex, ey], edof, ndof, t, element, material);
-
-% Filtering
-filterRadius = 15e-3;
-model.fr = filterRadius;
-
 %% Linear Solver and setting up probelm
 amountDisplaced = -0.5;
 
@@ -48,7 +43,6 @@ d = datevec(now); date = sprintf('%0.2i%0.2i%0.2i%0.2i', d(2:5));
 data = struct('stats', stats, ...
               'maxits', solver.maxits, ...
               'nbasis', solver.nbasis, ...
-              'filterRadius', filterRadius, ...
               'amountDisplaced', amountDisplaced, ...
               'date', date, ...
               'geomfile', geomfile, ...

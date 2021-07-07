@@ -1,0 +1,26 @@
+classdef Filter < handle
+    %Filter base class. Used to construct specific filters.
+    
+    properties
+        forward
+        backward
+    end
+    
+    methods
+        function obj = Filter(forward, backward)
+            obj.forward = forward;
+            obj.backward = backward;
+        end
+        
+        function newobj = mtimes(obj1, obj2)
+            f_new = @(z) obj1.forward(obj2.forward(z));
+            b_new = @(z) obj2.backward(z) * obj1.backward(obj2.forward(z));
+            newobj = Filter(f_new, b_new);
+        end
+        
+        function newobj = plus(obj1, obj2)
+            newobj = mtimes(obj1, obj2);
+        end
+    end
+end
+
