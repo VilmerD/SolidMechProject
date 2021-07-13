@@ -5,13 +5,13 @@ element = cont2D4();
 q = 3;
 width = 300e-3;
 height = width/q;    
-xres = 45;
+xres = 300;
 yres = xres/q;
 F = StructureFactory([xres, yres], [width, height]);
 F.addBoundaryCondition(@(x, y) abs(x - 0) < 1e-6, 1, 0);
 F.addBoundaryCondition(@(x, y) abs(x - width) < 1e-6, [1, 2], 0);
-F.addBoundaryCondition(@(x, y) logical((abs(x - 0) < 2*width/xres + 1e-6).*...
-    (abs(y - height) < 1e-6)), 2, 1);
+F.addBoundaryCondition(@(x, y) logical((abs(x - 0) < 5e-3 + 1e-6).*...
+    (abs(y - height) < 2e-3 + 1e-6)), 2, 1);
 
 geomfile = F.make(element);
 load(geomfile);

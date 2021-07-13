@@ -1,4 +1,4 @@
-function [ex, ey, coord, dof, edof] = makeMat(res)
+function [ex, ey, coord, dof, edof] = makeMatQ4(res)
 nx = res(1);
 ny = res(2);
 nelm = nx*ny;

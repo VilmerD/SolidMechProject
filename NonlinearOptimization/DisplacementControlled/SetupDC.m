@@ -1,23 +1,28 @@
 function [obj, Listener, x0] = SetupDC(model, solver, xp)
 % Filtering
-SF = SIMPFilter(1, 1e-5, 3);
 DF = DensityFilter(model.ec, model.volumes()/model.t, 15e-3);
-DesignF = SF * DF;
-VolumeF = DF;
+kupdate = @(k, b) b + 0.5*~mod(k, 10);
+
+SF = SIMPFilter(1, 1e-5, 3);
+HPd = HeavisideProjection(kupdate, 0.8);
+DesignF = SF * HPd * DF;
+
+HPv = HeavisideProjection(kupdate, 0.5);
+VolumeF = HPv * DF;
     
 % Some basic model stuff
 vq = 0.3;
-volumes_normalized = model.volumes()'/(sum(model.volumes())*vq);
-g1func = @(z) volumes_normalized * VolumeF.forward(z) - 1;
-g1pfunc = @(z) volumes_normalized * VolumeF.backward(z);
+volumes_normalized = model.volumes()/(sum(model.volumes())*vq);
+g1func = @(z) volumes_normalized' * z - 1;
+g1pfunc = @(z) volumes_normalized' * VolumeF.backward(z);
 
 ndof = model.ndof;
 nelm = model.nelm;
 x0 = ones(nelm, 1)*vq;
 
 % Model functions and stuff
-K = @(z)            model.K(DesignF.forward(z));
-r = @(z, uk, fext)  model.fint(uk, DesignF.forward(z)) - fext;
+K = @(z)            model.K(z);
+r = @(z, uk, fext)  model.fint(uk, z) - fext;
 dr_dz = @(z)        model.drdE()*DesignF.backward(z);
 
 NR_OPTIONS.solver = @solver.solveq;
@@ -29,7 +34,7 @@ MAXITS_MULTIPLICATION_FREQUENCY = 50;
 
 % Setup Disp. controlled scheme
 % If newton doesn't converge at the first optimization step increase nmax!!
-nmax = 25;
+nmax = 30;
 solver.nsteps = nmax;
 u0 = zeros(ndof, 1);
 uold = u0;
@@ -167,10 +172,12 @@ Listener = TOListener();
     % for the current design z
     function [g0, g0p, g1, g1p] = cmin(z)
         % Checking angle between designs
-        checkAngle(z);
+        zDFiltered = DesignF.forward(z);
+        zVFiltered = VolumeF.forward(z);
+        checkAngle(zDFiltered);
         
         % Solving equilibrium equations
-        [F, u] = solve(z);
+        [F, u] = solve(zDFiltered);
         
         % Computing objective function
         Fp = F(np); up = u(np);
@@ -181,7 +188,7 @@ Listener = TOListener();
         g0 = s*c;
         
         % Computing senisitivies
-        [~, l] = solver.solveq(K(z), f_zero, xp, nmax);
+        [~, l] = solver.solveq(K(zDFiltered), f_zero, xp, nmax);
         a([nf; np]) = [l(nf); up];
         a = a(:);
         drdzk = dr_dz(z);
@@ -189,7 +196,7 @@ Listener = TOListener();
         g0p = s*dcdz;
                 
         % Computing the volume constraint and it's sensitivities
-        g1 = g1func(z);
+        g1 = g1func(zVFiltered);
         g1p = g1pfunc(z);
         
         k = k + 1;
@@ -199,7 +206,7 @@ Listener = TOListener();
         stats = solver.getStats();
         stats.g0 = g0;
         stats.g1 = g1;
-        stats.design = z;
+        stats.design = zDFiltered;
         Listener.registerUpdate(stats);
         Listener.registerCustom('sensitivities', g0p)
     end

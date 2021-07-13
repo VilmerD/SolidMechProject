@@ -1,0 +1,33 @@
+classdef HeavisideProject < Filter
+    
+    properties
+        b
+        bmult
+        eta
+    end
+    
+    methods
+        function obj = HeavisideProject(bmult, eta)
+            obj@Filter();
+            obj.bmult = bmult;
+            obj.eta = eta;
+            obj.b = 1;
+            obj.k = 0;
+        end
+        
+        function rho = Heaviside(obj, z)
+            obj.k = obj.k + 1;
+            if mod(obj.k, obj.bmult(1)) == 0
+                obj.b = obj.b * obj.bmult(2);
+            end
+            rho = (tanh(obj.b*obj.eta) + tanh(obj.b*(z - obj.eta)))./...
+                (tanh(obj.b*obj.eta) + tanh(obj.b*(1 - obj.eta)));
+        end
+        
+        function rhoprime = dHeaviside(obj, z)
+            yp = obj.b./((tanh(obj.b*obj.eta) + tanh(obj.b*(1 - eta))).*...
+                cosh(obj.b*(z - eta)).^2);
+        end
+    end
+end
+

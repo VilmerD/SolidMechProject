@@ -1,21 +1,33 @@
 classdef SIMPFilter < Filter
     
     properties
+        E;
+        e_prop;
         q;
     end
     
     methods
         function obj = SIMPFilter(E, e_prop, q)
-            if nargin < 3
+            obj@Filter();
+            if nargin == 0
+                E = 1;
+                e_prop = 1e-5;
                 q = 3;
-                if nargin < 3
-                    e_prop = 1e-5;
-                end
             end
-            forward = @(z) SIMPFilter.SIMPForward(z, E, e_prop, q);
-            backward = @(z) SIMPFilter.SIMPBackward(z, E, e_prop, q);
-            obj@Filter(forward, backward);
+            obj.E = E;
+            obj.e_prop = e_prop;
             obj.q = q;
+            
+            obj.forward = @(z) obj.F(z);
+            obj.backward = @(z) obj.dF_dz(z);
+        end
+        
+        function y = F(obj, z)
+            y = SIMPFilter.SIMPForward(z, obj.E, obj.e_prop, obj.q);
+        end
+        
+        function dy = dF_dz(obj, z)
+            dy = SIMPFilter.SIMPBackward(z, obj.E, obj.e_prop, obj.q);
         end
     end
     
@@ -23,6 +35,7 @@ classdef SIMPFilter < Filter
         function rho = SIMPForward(z, Emax, e_prop, q)
             rho = Emax*(e_prop + (1 - e_prop) * z.^q);
         end
+        
         function rhoprime = SIMPBackward(z, Emax, e_prop, q)
             nz = length(z);
             rhoprime = Emax*(q * (1 - e_prop) * z.^(q - 1));

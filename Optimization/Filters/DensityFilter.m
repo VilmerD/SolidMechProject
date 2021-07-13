@@ -1,19 +1,29 @@
 classdef DensityFilter < Filter
     
     properties
-       filter_radius; 
+       filter_radius;
+       Mf;
     end
     
     methods
         function obj = DensityFilter(ec, areas, filter_radius, kernel)
+            obj@Filter();
             if nargin < 4
                 kernel = @(x, r) max(0, 1 - x/r);
             end
-            Mf = DensityFilter.dfilter(kernel, ec, areas, filter_radius);
-            forward = @(z) Mf*z;
-            backward = @(z) Mf;
-            obj@Filter(forward, backward);
+            obj.Mf = DensityFilter.dfilter(kernel, ec, areas, filter_radius);
             obj.filter_radius = filter_radius;
+            
+            obj.forward = @(z) obj.F(z);
+            obj.backward = @(z) obj.dF_dz(z);
+        end
+        
+        function y = F(obj, z)
+            y = obj.Mf*z;
+        end
+        
+        function dy = dF_dz(obj, ~)
+            dy = obj.Mf;
         end
     end
     
