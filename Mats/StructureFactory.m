@@ -20,7 +20,7 @@ classdef StructureFactory < handle
         end
         
         function filename = make(obj, element)
-            addpath(genpath('NonlinearOptimization//Mats'))
+            addpath(genpath('Mats'))
             generator = obj.getGenerator(element);
             [ex, ey, coord, dof, edof] = generator(obj.resolution);
             [nelm, np] = size(edof);
@@ -56,7 +56,7 @@ classdef StructureFactory < handle
             % Save file
             sform = 'beamSym%ix%iQ%i.mat';
             name = sprintf(sform, obj.resolution, (np-1)/2);
-            filename = ['Mats//', name];
+            filename = ['Mats/', name];
             save(filename, 'F', 'bc', 'edof', 'nelm', 'ndof', 'ex', ...
                 'ey')
         end

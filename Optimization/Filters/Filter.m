@@ -7,6 +7,7 @@ classdef Filter < handle
     end
     
     methods
+        
         function obj = Filter(forward, backward)
             if nargin == 0
                 forward = @(x) x;
@@ -26,20 +27,6 @@ classdef Filter < handle
         
         function newobj = mtimes(obj1, obj2)
             newobj = times(obj1, obj2);
-        end
-        
-        function newobj = plus(obj1, obj2)
-            newobj = times(obj1, obj2);
-        end
-    end
-    
-    methods (Static)
-        function obj = Identity()
-            obj = Filter.Scalar(1);
-        end
-        
-        function obj = Scalar(a)
-           obj = Filter(@(x) a*x, @(x) a);
         end
     end
 end

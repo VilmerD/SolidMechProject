@@ -57,15 +57,10 @@ classdef NLCont2D < handle
         % Comptues the row and column vectors used to assemble the
         % stiffness matrix
         function preAssemble(obj)
-            nne = (2*obj.element.npoints)^2;
-            obj.I = zeros(obj.nelm*nne, 1);
-            obj.J = obj.I;
-            for elm = 1:obj.nelm
-                k0 = ((elm - 1)*nne + 1); ke = (elm*nne);
-                ij = meshgrid(obj.edof(elm, 2:end));
-                obj.I(k0:ke) = reshape(ij', 1, nne);
-                obj.J(k0:ke) = reshape(ij, 1, nne);
-            end
+            obj.I = reshape(kron(obj.edof(:, 2:end), ...
+                ones(2*obj.element.npoints, 1))', [], 1);
+            obj.J = reshape(kron(obj.edof(:, 2:end), ...
+                ones(1, 2*obj.element.npoints))', [], 1);
         end
         
         % ----------------------------------------------------------------%
@@ -157,12 +152,10 @@ classdef NLCont2D < handle
         % Computes the sensitivity of the residual
         function y = drdE(obj)
             nne = (obj.element.npoints*2);
-            It = zeros(nne*obj.nelm, 1);
-            Jt = It;
+            It = reshape(obj.edof(:, 2:end), [], 1);
+            Jt = reshape(repmat(1:obj.nelm, 2*obj.element.npoints, 1), [], 1);
             X = It;
             for elm = 1:obj.nelm
-                dofs = obj.edof(elm, 2:end)';
-                
                 % Computes the defgrad
                 ef = obj.efm{elm};
                 es = obj.esm{elm};
@@ -171,9 +164,7 @@ classdef NLCont2D < handle
                 felm = obj.element.force(obj.matrices{elm, 2}, ...
                     obj.matrices{elm, 3}, obj.matrices{elm, 1}, obj.t, ef, es);
                 
-                k0 = (elm - 1)*nne + 1; ke = elm*nne;
-                It(k0:ke, 1) = dofs;
-                Jt(k0:ke, 1) = elm;
+                k0 = (elm - 1)*nne + 1; ke = k0 + nne - 1;
                 X(k0:ke, 1) = felm;
             end
             y = sparse(It, Jt, X);

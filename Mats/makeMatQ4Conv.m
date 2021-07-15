@@ -1,6 +1,4 @@
-function [ex, ey, coord, dof, edof] = makeMatQ4Conv(res)
-nx = res(1);
-ny = res(2);
+function [ex, ey, coord, dof, edof] = makeMatQ4Conv(nx, ny)
 nelm = nx*ny;
 nnod = (nx + 1)*(ny + 1);
 n = 1:nnod;

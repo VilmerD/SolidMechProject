@@ -8,7 +8,6 @@ classdef SIMPFilter < Filter
     
     methods
         function obj = SIMPFilter(E, e_prop, q)
-            obj@Filter();
             if nargin == 0
                 E = 1;
                 e_prop = 1e-5;
@@ -19,14 +18,14 @@ classdef SIMPFilter < Filter
             obj.q = q;
             
             obj.forward = @(z) obj.F(z);
-            obj.backward = @(z) obj.dF_dz(z);
+            obj.backward = @(z) obj.dFdz(z);
         end
         
         function y = F(obj, z)
             y = SIMPFilter.SIMPForward(z, obj.E, obj.e_prop, obj.q);
         end
         
-        function dy = dF_dz(obj, z)
+        function dy = dFdz(obj, z)
             dy = SIMPFilter.SIMPBackward(z, obj.E, obj.e_prop, obj.q);
         end
     end

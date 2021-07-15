@@ -5,7 +5,7 @@ element = cont2D4();
 q = 3;
 width = 300e-3;
 height = width/q;    
-xres = 300;
+xres = 45;
 yres = xres/q;
 F = StructureFactory([xres, yres], [width, height]);
 F.addBoundaryCondition(@(x, y) abs(x - 0) < 1e-6, 1, 0);
