@@ -1,44 +1,71 @@
 classdef SIMPFilter < Filter
+    % SIMPFilter penalizes using the SIMP method
     
     properties
-        E;
-        e_prop;
-        q;
+        xmin;       % Minimal x-value
+        q;          % Penalty exponent
     end
     
     methods
-        function obj = SIMPFilter(E, e_prop, q)
+        function obj = SIMPFilter(xmin, q)
+            % SIMPFilter Constructs an instance of this class
+            % 
+            % Input:
+            %       xmin:   Minimum x-value                               1
+            %       q:      Penalty exponent                              1
+            % 
+            
+            % Default value
             if nargin == 0
-                E = 1;
-                e_prop = 1e-5;
+                xmin = 1e-4;
                 q = 3;
             end
-            obj.E = E;
-            obj.e_prop = e_prop;
+            obj.xmin = xmin;
             obj.q = q;
             
-            obj.forward = @(z) obj.F(z);
-            obj.backward = @(z) obj.dFdz(z);
+            obj.forward = @(x) obj.F(x);
+            obj.backward = @(x) obj.dF(x);
         end
         
-        function y = F(obj, z)
-            y = SIMPFilter.SIMPForward(z, obj.E, obj.e_prop, obj.q);
+        function xt = F(obj, x)
+            xt = SIMPFilter.SIMPForward(x, obj.xmin, obj.q);
         end
         
-        function dy = dFdz(obj, z)
-            dy = SIMPFilter.SIMPBackward(z, obj.E, obj.e_prop, obj.q);
+        function dxt = dF(obj, x)
+            dxt = SIMPFilter.SIMPBackward(x, obj.xmin, obj.q);
         end
     end
     
     methods (Static)
-        function rho = SIMPForward(z, Emax, e_prop, q)
-            rho = Emax*(e_prop + (1 - e_prop) * z.^q);
+        function xt = SIMPForward(x, xmin, q)
+            % SIMPForward penalizes x using SIMP 
+            % 
+            % Input:
+            %       x:      Values to penalize                      (n x 1)
+            %       xmin:   Minimal x-value                               1
+            %       q:      Penalty exponent                              1
+            %
+            % Output:
+            %       xt:     Penalized values                        (n x 1)
+            
+            xt = xmin + (1 - xmin)*x.^q;
         end
         
-        function rhoprime = SIMPBackward(z, Emax, e_prop, q)
-            nz = length(z);
-            rhoprime = Emax*(q * (1 - e_prop) * z.^(q - 1));
-            rhoprime = spdiags(rhoprime, 0, nz, nz);
+        function dxt = SIMPBackward(x, xmin, q)
+            % SIMPBackward is the derivative of the forward penalization
+            % 
+            % Input:
+            %       x:      Values to penalize                      (n x 1)
+            %       xmin:   Minimal x-value                               1
+            %       q:      Penalty exponent                              1
+            %
+            % Output:
+            %       dxt:    Jacobian                                (n x n)
+            
+            dxt = (1 - xmin)*q*x.^(q - 1);
+            
+            n = length(x);
+            dxt = spdiags(dxt, 0, n, n);
         end
     end
 end

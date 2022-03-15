@@ -1,0 +1,104 @@
+\begin{minipage}[t]{0.7\textwidth}
+\begin{figure}[H]
+\begin{framed}
+\textit{Optimization scheme}
+\hrule
+\begin{itemize}
+    \item[] \textbf{for} i = 1  \textbf{to} maxits
+    \begin{itemize}
+        \item[-] Solve for displacements and forces using NR
+        \begin{itemize}
+            \item[] \textbf{if} i == 1
+            \begin{itemize}
+                \item[-] take \textit{n} steps
+            \end{itemize}
+            \item[] \textbf{else}
+            \begin{itemize}
+                \item[-] take 1 step with initial guess $\bm u_{i - 1}^{n}, \ \text{and} \ \bm K_{i - 1}^{n}$
+            \end{itemize} 
+            \item[] \textbf{end if}
+        \end{itemize}
+        \item[-] Compute sensitivities, solving equation \ref{eq:sens} with CA
+        \item[-] Solve mma-subproblem
+    \end{itemize}
+    \item[] \textbf{end for}
+\end{itemize}
+\end{framed}
+\caption{The complete optimzation scheme for the nonlinear optimization.}
+\end{figure}
+\end{minipage}\\
+
+\begin{minipage}[t]{0.7\textwidth}
+\begin{figure}[H]
+\begin{framed}
+    \textit{Combined Approximation}
+    \hrule
+    \begin{itemize}
+        \item[-] Initialize quantities
+        \item[-] $\bm r_1 = \K\i_0\f, \ \delK = \bm K - \bm K_0$
+        \item[-] $\bm v_1 = (\bm r_1^T\K \bm r_1)^{-1/2}\bm r_1$
+        \item[] \textbf{for} k = 2 \textbf{to} s
+        \begin{itemize}
+            \item[-] compute basis $\bm r_k = -\K\i_0 \delK \bm r_{k - 1}$
+            \item[-] initialize orthogonalization $\bm v_k = \bm r_k$
+            \item[] \textbf{for} j = 1 \textbf{to} k - 1
+            \begin{itemize}
+                \item[-] $\bm v_k \mineq (\bm r_k^T\K \bm v_j)\bm v_j$
+            \end{itemize}
+            \item[] \textbf{end for}
+            \item[-] normalize $\bm v_k \asteq (\bm v_k^T\K \bm v_k)^{-1/2}$
+        \end{itemize}
+        \item[] \textbf{end for}
+        \item[-] Solve $\bm u = \bm V(\bm V^T \bm f)$
+    \end{itemize}
+
+\end{framed}
+\label{fig:pseudocodeGS}
+\caption{Pseudocode for the combined approximation. It's very simple.}
+\end{figure}
+\end{minipage}\\
+
+\begin{minipage}[t]{0.7\textwidth}
+\centering
+\begin{figure}[H]
+\begin{framed}
+\textit{Newton-Raphson (Displacement Controlled)}
+\hrule
+\vspace{1ex}
+Given design $\bm z_i =\bm z_{i-1} + \bm \Delta \bm z$ at optimization step \textit{i}:
+\begin{itemize}
+    \item[-] Initialize quantities
+    \item[] \textbf{for} k = 1 \textbf{to }\# of loadsteps
+    \begin{itemize}
+        \item[-] Update displacement vector $\bm u_i^k = \bm u_i^{k-1} + \bm \Delta \bm u$
+        \item[] \textbf{do while} $||\bm r_{free}|| > r_{tol}$
+        \begin{itemize}
+            \item[-] Compute stiffness matrix $\bm K(\bm u_i^k, \bm z_i) = \bm K^k_i$
+            \item[] \textbf{if} $\cos(\theta(\bm z_i,\bm z_{i-1})) > c_{tol}$
+            \begin{itemize}
+                \item[-] fetch $\bm K^k_{i-1}, \ \text{and}\ \bm R^k_{i-1}$
+                \item[-] solve $\bm K^k_i \bm s = -\bm r$ with CA
+            \end{itemize}
+            \item[] \textbf{else}
+                \begin{itemize}
+                    \item[-] factorize $\bm K^k_i = \left(\bm R^k_i\right)^T\bm R^k_i$
+                    \item[-] solve $\bm s = -\bm R^k_i \Big \backslash \left(\bm R^k_i\right)^T\Big \backslash \bm r$
+                    \item[-] save $\bm R^k_i$
+                \end{itemize}
+            \item[] \textbf{end if}
+            \item[-] Search for $\bm u_i^k$ along the direction $\bm s$
+            \item[-] Update residual $\bm r = \bm r(\bm u^k_i, \bm z_i)$
+        \end{itemize}
+        \item[] \textbf{end while}
+        \item[-] Save $\bm K^k_i$ and $\bm u_i^k$.
+    \end{itemize}
+    \item[] \textbf{end for} 
+\end{itemize}
+\end{framed}
+\label{}
+\caption{Newton Raphson scheme using the combined approximation for solving the linear equation system.}
+\end{figure}
+\end{minipage}\\
+\begin{minipage}[y]{0.7\textwidth}
+Both changes is design and changes in the displacements perturb $\bm K$ and can result in poor performance for CA if the perturbation in $\bm K$ is large. A check for the change in displacements can be used in tandem with the design change check to ensure CA performs well (although I have not found time to test such an implementation).
+\end{minipage}

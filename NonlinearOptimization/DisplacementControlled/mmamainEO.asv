@@ -1,0 +1,28 @@
+headingform = '%4s | %6s %10sn';
+printform = '%04i | %06.3f %010.8e\n'
+X = xk;
+outit = 0;
+extras = cell(minoutit, 1);
+while outit < minoutit || (alph > alphtol && outit < maxoutit)
+    fprintf('\n(%03i)', outit);
+    
+    % Linearizing objective function and constraints
+    [g0, dg0dx, g1, dg1dx, extra] = objective(xk, outit);
+    
+    % Solving the mma subproblem at the current design
+    [xkp1, ~, ~, ~, ~, ~, ~, ~, ~, low, upp] = ...
+        mmasub(m, n, outit, xk, xmin, xmax, xkm1, xkm2, ...
+        g0, dg0dx, g1, dg1dx, low, upp, a0, a, c, d);
+    
+    % Update iterates
+    xkm2 = xkm1;
+    xkm1 = xk;
+    xk = xkp1;
+    X(:, outit+1) = xkp1;
+    
+    % Checking change in design
+    alph = extra.alph;
+    
+    extras{outit + 1} = extra;
+    outit = outit + 1;
+end

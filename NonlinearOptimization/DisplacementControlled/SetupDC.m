@@ -1,214 +1,131 @@
-function [obj, Listener, x0] = SetupDC(model, solver, xp)
+function objective = SetupDC(model, vq, radius, alph, nsteps)
 % Filtering
-DF = DensityFilter(model.ec, model.volumes()/model.t, 15e-3);
-kupdate = @(k, b) b + 0.5*~mod(k, 10);
+% exey = model.ec(:, [2:2:end, 3:2:end]);
+filter = DensityFilter(model.ex, model.ey, model.volumes(), radius);
+SF = SIMPFilter(1e-5, 3);
 
-SF = SIMPFilter(1, 1e-5, 3);
-HPd = HeavisideProjection(kupdate, 0.8);
-DesignF = SF * HPd * DF;
-
-HPv = HeavisideProjection(kupdate, 0.5);
-VolumeF = HPv * DF;
-    
-% Some basic model stuff
-vq = 0.3;
-volumes_normalized = model.volumes()/(sum(model.volumes())*vq);
-g1func = @(z) volumes_normalized' * z - 1;
-g1pfunc = @(z) volumes_normalized' * VolumeF.backward(z);
-
-ndof = model.ndof;
-nelm = model.nelm;
-x0 = ones(nelm, 1)*vq;
+% Volume constraint
+volumes = model.volumes;
+Vmax = sum(volumes)*vq;
 
 % Model functions and stuff
-K = @(z)            model.K(z);
-r = @(z, uk, fext)  model.fint(uk, z) - fext;
-dr_dz = @(z)        model.drdE()*DesignF.backward(z);
+S = @(ed) model.defrom(ed);
+K = @(ef, es, z) model.K(ef, es, z);
+r = @(ef, es, z, fext) model.fint(ef, es, z) - fext;
+dr = @(ef, es, z) model.drdE(ef, es, z);
 
-NR_OPTIONS.solver = @solver.solveq;
-NR_OPTIONS.rtol = 1e-6;
-zold = x0;
-dzTol = 1e0;
-drdzk = 0;
-MAXITS_MULTIPLICATION_FREQUENCY = 50;
+drdzf = 0;
+zold = zeros(model.nelm, 1);
+uold = zeros(model.ndof, 1);
 
 % Setup Disp. controlled scheme
-% If newton doesn't converge at the first optimization step increase nmax!!
-nmax = 30;
-solver.nsteps = nmax;
-u0 = zeros(ndof, 1);
-uold = u0;
-cothmax = 1 - 1e-3;
-
 % Free and prescribed nodes
-np = xp(:, 1);
-nf = (1:ndof)';
+bc = model.bc;
+np = bc(:, 1);
+bc_final = [np bc(:, 2)*alph];
+nf = (1:model.ndof)';
 nf(np) = [];
-f_zero = zeros(ndof, 1);
 
-k = 0;
+fz = zeros(model.ndof, 1);
 s = 1;
-Listener = TOListener();
 
-    % Makes an initial guess using information from dz and dfintdz
-    function du0 = guess(dz)
-        if sqrt(dz'*dz) < dzTol
-            b = -drdzk*dz;
-            bf = b(nf);
-            du0 = zeros(ndof, 1);
-            Rold = solver.Rold{nmax};
-            du0(nf) = Rold\(Rold'\bf);
-        else
-            du0 = 0;
+% Wrapper function for solving the equilibrium equations given the design z
+    function [P, u, es, ef] = solve(z)
+        Kfun = @(ef, es) K(ef, es, z);
+        resfun = @(ef, es, fext) r(ef, es, z, fext);
+        sfun = S;
+        u0 = uold;
+        [P, u, es, ef] = NRDC(Kfun, resfun, sfun, ...
+            bc_final, nsteps, u0);
+    end
+
+h = 1e-5;
+indx = [10 100 666];
+
+    function dg0dz = numSensObj(z)
+        dg0dz = zeros(numel(indx), 1);
+        zf = filter.forward(z);
+        zfp = SF.forward(zf);
+        [F, u, ~, ~] = solve(zfp);
+        Ffinal = F(:, end);
+        ufinal = u(:, end);
+        g00 = Ffinal(np)'*ufinal(np);
+        
+        for i = 1:numel(indx)
+            ii = indx(i);
+            zph = z;
+            zph(ii) = zph(ii) + h;
+            zphf = filter.forward(zph);
+            zphfp = SF.forward(zphf);
+            
+            [Fph, uph, ~, ~] = solve(zphfp);
+            Fphfinal = Fph(:, end);
+            uphfinal = uph(:, end);
+            g0ph = Fphfinal(np)'*uphfinal(np);
+            
+            dg0dz(i) = (g0ph - g00)/h*s;
         end
     end
 
-    % Wrapper function for solving the equilibrium equations given the design z
-    function [Pout, uout] = solve(z)
-        dz = z - zold;
-        if k > 0
-            factorize = solver.forceFactorization;
-            solver.forceFactorization = 0;
-            nstart = nmax;
-            ustart = uold(:, nstart);
-            du0 = guess(dz);
-            solver.forceFactorization = factorize;
-        else
-            nstart = 1;
-            ustart = u0;
-            du0 = 0;
-        end
-        % Call the inner function
-        restarts = 0;
-        [P, u] = solveInner(zold, dz, du0);
+    function drnum = numSensRes(ef, es, z)
+        drnum = zeros(model.ndof, numel(indx));
+        zf = filter.forward(z);
+        zfp = SF.forward(zf);
+        r0 = r(ef, es, zfp, 0);
         
-        % Inner function that solves the equilibrium equations, and resets
-        % if the iteration doesn't converge
-        function [P, u] = solveInner(zold, dz, du0)
-            znew = zold + dz;
-            try
-                NR_OPTIONS.n0 = nstart;
-                NR_OPTIONS.u0 = ustart + du0;
-                [P, u] = NRDCFAST(@() K(znew), @(u, f) r(znew, u, f), ...
-                    xp, nmax, ndof, NR_OPTIONS);
-            catch ME
-                % For some reason there was an error and we need to adjust
-                % parameters
-                restarts = restarts + 1;
-                
-                % If the number of restarts is more than 2 stop using
-                % shortcuts and start from beginning
-                if restarts > 2
-                    if restarts == 3
-                        nstart = 1;
-                        ustart = u0;
-                        [P, u] = solveInner(zold, dz, 0);
-                        return
-                    else
-                        P = 0;
-                        u = 0;
-                        return;
-                    end
-                end
-                switch ME.identifier
-                    % If NR didnt converge, try forcing factorization
-                    case 'NR:ConverganceError'
-                        if solver.forceFactorization ~= 1
-                            solver.forceFactorization = 1;
-                            [P, u] = solveInner(zold, dz, du0);
-                            return;
-                        elseif nstart > 1
-                            nstart = nstart-1;
-                            ustart = uold(:, nstart);
-                            [P, u] = solveInner(zold, dz, 0);
-                            return;
-                        end
-                        % If there is an error in the assembly of the FE-
-                        % components, we need to start closer to the last step
-                    case 'NR:FE_Error'
-                        if nstart > 1
-                            nstart = nstart-1;
-                            ustart = uold(:, nstart);
-                            [P, u] = solveInner(zold, dz, 0);
-                            return;
-                        end
-                    otherwise
-                        rethrow(ME)
-                end
-                P = 0;
-                u = 0;
-            end
-        end
-        
-        if numel(P) == 1
-            errStruct.message = 'Newton failed to converge';
-            errStruct.id = 'NR:ConverganceError';
-            error(errStruct);
-        end
-        
-        % Update the old solution z and u
-        uold = u;
-        zold = z;
-        
-        Pout = P(:, end);
-        uout = u(:, end);
-    end
-
-    % Checks if the a factorization should be forced
-    function checkAngle(znew)
-        if k > 0
-            coth = zold'*znew/(norm(zold)*norm(znew));
-            if coth < cothmax
-                solver.forceFactorization = 1;
-            else
-                solver.forceFactorization = 0;
-            end
-        else
-            solver.forceFactorization = 1;
+        for i = 1:numel(indx)
+            ii = indx(i);
+            zph = z;
+            zph(ii) = zph(ii) + h;
+            zphf = filter.forward(zph);
+            zphfp = SF.forward(zphf);
+            
+            rph = r(ef, es, zphfp, 0);
+            drnum(:, i) = (rph - r0)/h;
         end
     end
 
-    % Computes the function value, the constraints and their derivatives
-    % for the current design z
-    function [g0, g0p, g1, g1p] = cmin(z)
+% Computes the function value, the constraints and their derivatives
+% for the current design z
+    function [g0, dg0dz, g1, dg1dz, extra] = cmin(z, iter)
         % Checking angle between designs
-        zDFiltered = DesignF.forward(z);
-        zVFiltered = VolumeF.forward(z);
-        checkAngle(zDFiltered);
+        zf = filter.forward(z);
+        zfp = SF.forward(zf);
+        dzfdz = filter.backward(z);
         
         % Solving equilibrium equations
-        [F, u] = solve(zDFiltered);
+        [F, u, ef, es] = solve(zfp);
+        Ffinal = F(:, end);
+        ufinal = u(:, end);
         
         % Computing objective function
-        Fp = F(np); up = u(np);
+        Fp = Ffinal(np); up = ufinal(np);
         c = Fp'*up;
-        if k == 0
-            s = -1/c;
-        end
+        if iter == 0; s = -1/c; end
         g0 = s*c;
         
         % Computing senisitivies
-        [~, l] = solver.solveq(K(zDFiltered), f_zero, xp, nmax);
+        Kn = K(ef, es, zfp);
+        l = msolveq(Kn, fz, bc_final);
         a([nf; np]) = [l(nf); up];
         a = a(:);
-        drdzk = dr_dz(z);
-        dcdz = (a'*drdzk)';
-        g0p = s*dcdz;
-                
-        % Computing the volume constraint and it's sensitivities
-        g1 = g1func(zVFiltered);
-        g1p = g1pfunc(z);
+        [~, ~, dzfpdzf] = find(SF.backward(zf)); 
+        drdzf = dr(ef, es, dzfpdzf);
+        drdz = drdzf*dzfdz;
+        dcdz = (a'*drdz)';
+        dg0dz = s*dcdz;
         
-        k = k + 1;
-        if mod(k, MAXITS_MULTIPLICATION_FREQUENCY) == 0
-            solver.maxits = min(solver.maxits*2, 64);
-        end
-        stats = solver.getStats();
-        stats.g0 = g0;
-        stats.g1 = g1;
-        stats.design = zDFiltered;
-        Listener.registerUpdate(stats);
-        Listener.registerCustom('sensitivities', g0p)
+        % Computing the volume constraint and it's sensitivities
+        g1 = volumes'*zf/Vmax - 1;
+        dg1dz = volumes'*dzfdz/Vmax;
+        
+        % Computing change in design
+        zn = z/norm(z);
+        th = min(1, dot(zn, zold));
+        alph = sqrt(1 - th^2);
+        zold = zn;
+        uold = u(:, end-2:end);
+        extra.alph = alph;
     end
-obj = @cmin;
+objective = @cmin;
 end

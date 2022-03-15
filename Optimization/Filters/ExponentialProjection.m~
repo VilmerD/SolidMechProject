@@ -1,0 +1,39 @@
+classdef ExponentialProjection < Filter
+    % ExponentialProjection is a min-max operator
+    
+    properties
+        k
+        b
+        b0 = 0;
+        bupdate
+    end
+    
+    methods
+        function obj = ExponentialProjection(params)
+            obj.b = obj.b0;
+            obj.k = 0;
+            
+            type = params{end};
+            if strcmpi(type, 'ero
+            
+        end
+    end
+    
+    methods (Static)
+        function xt = MME(x, b)
+            xt = 1 - exp(-b*x) + x*exp(-b);
+        end
+        
+        function dxt = dMME(x, b)
+            dxt = b*exp(-b*x) + exp(-b);
+        end
+        
+        function bnew = bupdateLinear(b, k, k0, bmax, bstep, bincrement)
+            bupatenow = ~mod(k - k0, bstep);
+            bthreshold = (k >= k0);
+            bstepk = min(bincrement, bmax - b);     
+            bnew = b + bstepk*bupatenow*bthreshold;
+        end 
+    end
+end
+

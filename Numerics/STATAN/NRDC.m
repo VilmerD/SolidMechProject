@@ -1,4 +1,28 @@
-function [P, u] = NRDC(K, r, xp, nmax, ndof, options)
+function [P, u, ef, es] = NRDC(K, r, sfun, xp, nmax, u0)
+% Wraps NRDC
+solution_found = false;
+u0 = [zeros(size(u0, 1), 1) u0];
+RESTARTS_MAX = size(u0, 2);
+nrestarts = 0;
+
+while ~solution_found && nrestarts < RESTARTS_MAX
+    uold = u0(:, RESTARTS_MAX - nrestarts);
+    [P, u, ef, es, flag] = NRDC_inner(K, r, sfun, xp, nmax, uold); 
+    if flag == 0
+        solution_found = true;
+    elseif flag == 1 && nrestarts < RESTARTS_MAX
+        nrestarts = nrestarts + 1;
+    else
+    end
+end
+if ~solution_found
+    errorStruct.message = 'Couldnt solve problem';
+    error(errorStruct);
+end
+
+end
+
+function [P, u, efn, esn, flag] = NRDC_inner(K, r, sfun, xp, nmax, u0)
 % Computes the displacement controlled response of the system
 %
 % Inputs
@@ -9,47 +33,22 @@ function [P, u] = NRDC(K, r, xp, nmax, ndof, options)
 %   xp:     Prescribed displacement [nbc x 1]
 %
 %   nmax:   amount of steps
-%   
+%
 %   ndof:   number of degrees of freedom
 %
 %   options:
 %
+
 rMax = 1e12;
-if isfield(options, 'rtol')
-    rtol = options.rtol;
-else
-
-rtol = 1e-7;
-end
-
-if isfield(options, 'u0')
-    u0 = options.u0;
-    n0 = options.n0;
-else
-    u0 = zeros(ndof, 1);
-    n0 = 1;
-end
-
-if isfield(options, 'Verbose')
-    verbosity = options.Verbose;
-else
-    verbosity = 1;
-end
-
-if isfield(options, 'N_INNER_MAX')
-    N_INNER_MAX = options.N_INNER_MAX;
-else
-    N_INNER_MAX = 10;
-end
-
-% Reset warning so illConditionedMatrix warning can be caught
-lastwarn('');
-s = warning('off', 'MATLAB:illConditionedMatrix');
+rtol = 1e-9;
+N_INNER_MAX = 10;
+ndof = size(u0, 1);
 
 % The boundary condition used to correct the solution
-correct = xp;
-correct(:, 2) = 0;
-resn = r(u0, 0);
+load_correction = xp;
+load_correction(:, 2) = 0;
+[efn, esn] = sfun(u0);
+resn = r(efn, esn, 0);
 
 % Free/Prescribed nodes
 np = xp(:, 1);
@@ -57,87 +56,67 @@ nf = 1:ndof;
 nf(np) = [];
 
 % How much to load each step
-dup_k = xp(:, 2)/nmax;            
+% Total length to load from u0
+dutot = (xp(:, 2) - u0(np));
+ltot = norm(dutot);
+
+% Total length to load from 0 (corresponding to nmax steps)
+du0 = norm(xp(:, 2));
+lstep0 = du0/nmax;
+
+nstep = max(1, ceil(ltot/lstep0)); % Take at least one step
+dustep = dutot/nstep;
 
 % Initiating quantities
 un = u0;
 u = zeros(ndof, nmax);
 P = zeros(ndof, nmax);
-if verbosity
-    printHeading();
-end
-for n = n0:nmax
-    if verbosity
-        fprintf('\n%12s%9i%9s', 'Taking Step', n, '');
-    end
+printHeader();
+for n = (nmax - nstep + 1):nmax
     % Computing how much should be displaced
-    dup_n = n*dup_k - un(np);
-    load = [xp(:, 1) dup_n];
+    load = [xp(:, 1) dustep];
     
     % Displacement
-    if isfield(options, 'solver')
-        [~, s] = options.solver(K(un), -resn, load, n);
-    else
-        s = solveq(K(un), -resn, load);
-    end
+    Kn = K(efn, esn);
+    dun = msolveq(Kn, -resn, load);
     
-    un = un + s;
-    resn = r(un, 0);                % Residual foces
+    un = un + dun;
+    [efn, esn] = sfun(un);
+    resn = r(efn, esn, 0);           % Residual foces
     r_free = norm(resn(nf));        % Norm of residual in free nodes
-    
-   % Check for warnings when assembling r
-    checkResidualWarnings();
-    
-    fprintf('% 1.2e', r_free)
+    r_tot = norm(resn);
     
     % Iterating untill convergance
     N_INNER = 0;
-    if verbosity
-        fprintf('\n%12s%9i%9i%9s', 'Correcting', n, '', '');
-    end
-    while r_free > rtol
+    while r_free/r_tot > rtol
         % Computing new estimate, with zero displacement in prescribed nodes
-        if isfield(options, 'solver')
-            [~, s] = options.solver(K(un), -resn, correct, n);
-        else
-            s = solveq(K(un), -resn, correct);
-        end
-        un = un + s;
-        resn = r(un, 0);
+        Kn = K(efn, esn);
+        dun = msolveq(Kn, -resn, load_correction);
+        un = un + dun;
+        [efn, esn] = sfun(un);
+        resn = r(efn, esn, 0);
         r_free = norm(resn(nf));
-        
-        checkResidualWarnings();
+        r_tot = norm(resn);
         
         N_INNER = N_INNER + 1;
-        % Update user
-        if verbosity
-            printAction('', n, N_INNER, r_free);
-        end
         if N_INNER > N_INNER_MAX || r_free > rMax
-            errorStruct.message = sprintf(...
-                'Newton failed to converge within %i steps.', N_INNER_MAX);
-            errorStruct.identifier = 'NR:ConverganceError';
-            error(errorStruct)
+            flag = 1;
+            return
         end
     end
     u(:, n) = un;
     P(:, n) = resn;
+    
+    % Update user
+    printAction(n, N_INNER, r_free/r_tot);
 end
-end
-
-function printHeading()
-fprintf('\n   Action    n_outer  n_inner     r    ');
-end
-
-function printAction(action, nouter, ninner, r)
-fprintf('\n%12s%9i%9i% 1.2e', action, nouter, ninner, r)
+flag = 0;
 end
 
-function checkResidualWarnings()
-    [warnmsg, ~] = lastwarn;
-    if ~isempty(warnmsg)
-        errorStruct.message = 'Problems with deformation gradient';
-        errorStruct.identifier = 'NR:FE_Error';
-        error(errorStruct);
-    end
+function printHeader()
+fprintf('%-3s %-2s %-8s\n', 'out', 'in', 'res');
+end
+
+function printAction(nouter, ninner, r)
+fprintf('%-3i %-2i %8.2e\n', nouter, ninner, r)
 end

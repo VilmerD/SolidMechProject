@@ -11,14 +11,15 @@ classdef Filter < handle
         function obj = Filter(forward, backward)
             if nargin == 0
                 forward = @(x) x;
-                backward = @(x) 1;
+                backward = @(x) speye(size(x, 1));
             end
             obj.forward = forward;
             obj.backward = backward;
         end
         
-        % In reality the filters are composed with the order obj2(obj1) ie
-        % the composition is read right to left
+        % The filters are applied from right to left, meaning
+        % - (obj1 * obj2)(z) = obj1(obj2(z))
+        % - D[obj1 * obj2](z) = D[obj1](obj2(z))*D[obj2](z)
         function newobj = times(obj1, obj2)
             f_new = @(z) obj1.forward(obj2.forward(z));
             b_new = @(z) obj1.backward(obj2.forward(z)) * obj2.backward(z);
