@@ -1,7 +1,4 @@
-classdef NLCont2D < handle
-    % init2D represents a FE Model, and contains routies for
-    % - fint, stiffness matrix for total and updated lagrangian
-    % - mass matrix etc
+classdef NLContModel_opt < handle
     properties
         % Setting up geometry
         nelm;
@@ -28,16 +25,26 @@ classdef NLCont2D < handle
         
         % Element
         element
+        
+        % Penalization
+        stiffness_penalization;
+        
+        % Thresholding
+        thresholding;
+        
+        % Filter
+        filter;
+        density_filter;
     end
     
     methods
-        function obj = NLCont2D(ex, ey, edof, ndof, t, element, material, ...
+        function obj = NLContModel_opt(ex, ey, edof, t, element, material, ...
                 bc, f)
             obj.element = element;
             obj.edof = edof;
             s = size(edof);
             obj.nelm = s(1);
-            obj.ndof = ndof;
+            obj.ndof = max(edof(:));
             
             obj.t = t;
             obj.ec = [ex, ey];
@@ -93,8 +100,9 @@ classdef NLCont2D < handle
         
         % internal force
         function f = fint(obj, ef, es, x)
-            
             f = zeros(obj.ndof, 1);
+            
+            xp = obj.stiffness_penalization.forward(x);
             for elm = 1:obj.nelm
                 % Extract stresses
                 efelm = ef{elm};
@@ -102,7 +110,7 @@ classdef NLCont2D < handle
                 
                 % Using the above data the element stiffness matrix can be
                 % computed and inserted into the correct position
-                felm = x(elm)*obj.element.force(obj.matrices{elm, 2}, ...
+                felm = xp(elm)*obj.element.force(obj.matrices{elm, 2}, ...
                     obj.matrices{elm, 3}, obj.matrices{elm, 1}, obj.t, ...
                     efelm, eselm);
                 % TODO: Fix this horrible indexing to sparse format
@@ -116,7 +124,7 @@ classdef NLCont2D < handle
             nne = (2*obj.element.npoints)^2;
             X = zeros(obj.nelm*nne, 1);
             
-            % Iterates over the elements
+            xp = obj.stiffness_penalization.forward(x);
             for elm = 1:obj.nelm
                 % Extract stresses
                 efelm = ef{elm};
@@ -127,7 +135,7 @@ classdef NLCont2D < handle
                 
                 % Using the above data the element stiffness matrix can be
                 % computed
-                Kelm = x(elm)*obj.element.stiffness(obj.matrices{elm, 2}, ...
+                Kelm = xp(elm)*obj.element.stiffness(obj.matrices{elm, 2}, ...
                     obj.matrices{elm, 3}, obj.matrices{elm, 1}, obj.t, ...
                     Delm, efelm, eselm);
                 
@@ -162,6 +170,8 @@ classdef NLCont2D < handle
             It = reshape(obj.edof(:, 2:end)', [], 1);
             Jt = kron((1:obj.nelm)', ones(2*obj.element.npoints, 1));
             X = zeros(size(It));
+            
+            dx = full(diag(obj.stiffness_penalization.backward(x)));
             for elm = 1:obj.nelm
                 % Computes the defgrad
                 efelm = ef{elm};
@@ -173,9 +183,30 @@ classdef NLCont2D < handle
                     efelm, eselm);
                 
                 k0 = (elm - 1)*nne + 1; ke = k0 + nne - 1;
-                X(k0:ke, 1) = x(elm)*felm;
+                X(k0:ke, 1) = dx(elm)*felm;
             end
             y = sparse(It, Jt, X);
+        end
+    end
+    
+    methods (Static)
+        function model = makeModel(geomfile, t, element, material, ...
+                threshpara, filterpara)
+            load(geomfile, 'ex', 'ey', 'edof', 'bc', 'F');
+            model = NLContModel_opt(ex, ey, edof, t, element, ...
+                material, bc, F);
+            
+            % Thresholding
+            model.thresholding = HeavisideProjection(threshpara);
+            
+            % Filter
+            model.filter = DensityFilter(ex, ey, model.volumes(), ...
+                filterpara{:});
+            model.density_filter = model.thresholding*model.filter;
+            
+            % Penalization
+            xmin = 1e-4;
+            model.stiffness_penalization = SIMPFilter(xmin, 3);
         end
     end
 end

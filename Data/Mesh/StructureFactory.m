@@ -29,13 +29,10 @@ classdef StructureFactory < handle
             ndof = max(edof(:));
             
             % Basic data
-            w = obj.width;
-            h = obj.height;
-            
-            xcoord = coord(:, 1)*w;
-            ycoord = coord(:, 2)*h;
-            ex = ex*w;
-            ey = ey*h;
+            xcoord = coord(:, 1)*obj.width;
+            ycoord = coord(:, 2)*obj.height;
+            ex = ex*obj.width;
+            ey = ey*obj.height;
             
             % Add boundary conditions
             bc = [];
@@ -87,7 +84,7 @@ classdef StructureFactory < handle
             
             % Save file
             save(filename, 'F', 'bc', 'edof', 'edofs', 'nelm', 'ndof', 'ex', ...
-                'ey', 'enod')
+                'ey', 'enod', 'width', 'height')
         end
         
         function addBoundaryCondition(obj, func, coords, val)

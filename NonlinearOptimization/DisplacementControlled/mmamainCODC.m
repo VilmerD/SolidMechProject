@@ -1,13 +1,18 @@
-headingform = '%-4s | %-6s %-10s\n';
-printform = '%04i | %06.3f %010.9f\n';
-if isempty(who('logfile_optID')); logfile_optID = 1; end
+logfilename = 'logoptID';
+if isempty(who(logfilename)); logoptID = 1; end
 
-fprintf(logfile_optID, headingform, 'iter', 'g0', 'alph');
+headingform = '%-4s | %5s %5s %5s %5s | %8s %8s %8s \n';
+printformall = '%4i | %5i %5i %5i %5.0e | %+8.3f %+8.0e %8.0e \n';
+printform_init = '%4i | ';
+printform_final = ' | %+8.3f %+8.0e %8.0e \n';
+fprintf(logoptID, headingform, 'iter', 'nout', 'nin', ...
+    'rstrt', 'res', 'g0', 'g1', 'alph');
 
 X = xk;
 outit = 0;
 extras = cell(minoutit, 1);
 while outit < minoutit || (alph > alphtol && outit < maxoutit)
+    fprintf(logoptID, printform_init, outit);
     
     % Linearizing objective function and constraints
     [g0, dg0dx, g1, dg1dx, extra] = objective(xk, outit);
@@ -28,7 +33,7 @@ while outit < minoutit || (alph > alphtol && outit < maxoutit)
     
     extras{outit + 1} = extra;
     outit = outit + 1;
-    fprintf(logfile_optID, printform, outit-1, g0, alph);
+    fprintf(printform_final, g0, g1, alph);
 end
 
 fprintf(logfile_optID, 'Done \n\n');

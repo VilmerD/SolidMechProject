@@ -1,9 +1,4 @@
-function objective = SetupDC(model, vq, radius, alph, nsteps)
-% Filtering
-% exey = model.ec(:, [2:2:end, 3:2:end]);
-filter = DensityFilter(model.ex, model.ey, model.volumes(), radius);
-SF = SIMPFilter(1e-5, 3);
-
+function objective = SetupDC(model, vq, alph, NSTEPS)
 % Volume constraint
 volumes = model.volumes;
 Vmax = sum(volumes)*vq;
@@ -11,18 +6,19 @@ Vmax = sum(volumes)*vq;
 % Model functions and stuff
 S = @(ed) model.defrom(ed);
 K = @(ef, es, z) model.K(ef, es, z);
-r = @(ef, es, z, fext) model.fint(ef, es, z) - fext;
+r = @(ef, es, fext, z) model.fint(ef, es, z) - fext;
 dr = @(ef, es, z) model.drdE(ef, es, z);
 
 drdzf = 0;
 zold = zeros(model.nelm, 1);
-uold = zeros(model.ndof, 1);
+NRESTARTS = 3;
+uold = zeros(model.ndof, NRESTARTS);
 
 % Setup Disp. controlled scheme
 % Free and prescribed nodes
 bc = model.bc;
 np = bc(:, 1);
-bc_final = [np bc(:, 2)*alph];
+bc = [np bc(:, 2)*alph];
 nf = (1:model.ndof)';
 nf(np) = [];
 
@@ -30,13 +26,19 @@ fz = zeros(model.ndof, 1);
 s = 1;
 
 % Wrapper function for solving the equilibrium equations given the design z
-    function [P, u, es, ef] = solve(z)
+    function [u, F, es, ef] = solve(z)
         Kfun = @(ef, es) K(ef, es, z);
-        resfun = @(ef, es, fext) r(ef, es, z, fext);
-        sfun = S;
+        resfun = @(ef, es, fext) r(ef, es, fext, z);
+        sfun = @(u) S(u);
         u0 = uold;
-        [P, u, es, ef] = NRDC(Kfun, resfun, sfun, ...
-            bc_final, nsteps, u0);
+        [u, F, es, ef, NSOLS] = NRDCoptstep(Kfun, resfun, sfun, ...
+            bc, u0, NSTEPS);
+        
+        % Update uold
+        NINP = min(NRESTARTS, NSOLS);
+        Isol = (NSTEPS - NINP + 1):NSTEPS;
+        Iold = (NRESTARTS - NINP + 1):NRESTARTS;
+        uold(:, Iold) = u(:, Isol);
     end
 
 h = 1e-5;
@@ -89,12 +91,12 @@ indx = [10 100 666];
 % for the current design z
     function [g0, dg0dz, g1, dg1dz, extra] = cmin(z, iter)
         % Checking angle between designs
-        zf = filter.forward(z);
-        zfp = SF.forward(zf);
-        dzfdz = filter.backward(z);
+        model.thresholding.update(iter);
+        zf = model.density_filter.forward(z);
+        dzfdz = model.density_filter.backward(z);
         
         % Solving equilibrium equations
-        [F, u, ef, es] = solve(zfp);
+        [u, F, ef, es] = solve(zf);
         Ffinal = F(:, end);
         ufinal = u(:, end);
         
@@ -105,12 +107,10 @@ indx = [10 100 666];
         g0 = s*c;
         
         % Computing senisitivies
-        Kn = K(ef, es, zfp);
-        l = msolveq(Kn, fz, bc_final);
-        a([nf; np]) = [l(nf); up];
-        a = a(:);
-        [~, ~, dzfpdzf] = find(SF.backward(zf)); 
-        drdzf = dr(ef, es, dzfpdzf);
+        Kn = K(ef, es, zf);
+        l = msolveq(Kn, fz, bc);
+        a([nf; np], 1) = [l(nf); up];
+        drdzf = dr(ef, es, zf);
         drdz = drdzf*dzfdz;
         dcdz = (a'*drdz)';
         dg0dz = s*dcdz;
@@ -124,7 +124,6 @@ indx = [10 100 666];
         th = min(1, dot(zn, zold));
         alph = sqrt(1 - th^2);
         zold = zn;
-        uold = u(:, end-2:end);
         extra.alph = alph;
     end
 objective = @cmin;
