@@ -14,15 +14,10 @@ rz = @(ef, es, fext) r(ef, es, fext, znew);
 while ~solution_found
     
     % Get starting point
-    if ~START_AT_ZERO && nrestarts <= RESTARTS_MAX
+    if nrestarts <= RESTARTS_MAX
         u0n = uold(:, end - nrestarts);
-        fprintf('Start number %i\n', nrestarts);
     elseif START_AT_ZERO
-        fprintf('Starting from 0\n');
         u0n = zeros(size(uold, 1), 1);
-    else
-        errorStruct.message = 'Iteration failed';
-        error(errorStruct);
     end
     
     % Attempt a solution at u0n
@@ -34,24 +29,26 @@ while ~solution_found
         % Solution found! Get out!
         flagout = 0;
         solution_found = true;
+        fprintf('Solution found\n');
         
     elseif flagin == 1 && nrestarts < RESTARTS_MAX
         % Restart with other initial guess
         nrestarts = nrestarts + 1;
+        fprintf('Restarting \n');
         
     elseif flagin == 1 && nrestarts == RESTARTS_MAX
         % If dz is large it's feasible to divide into smaller parts,
         % otherwise, of if division fails start at zero
         if norm(dz) > 1e-1
             % Try dividing dz into smaller parts (stepping in z-dimension?)
-            nzsteps = 8;
+            nzsteps = 5;
             alph = 1/nzsteps;
-            fprintf('Dividing dz into %i steps \n', nzsteps);
+            fprintf('Dividing dz into %i steps \n'. nzsteps);
             
             dzalph = dz*alph;
             uoldalph = uold(:, end);
             for i = 1:nzsteps
-                fprintf('\t Step %i \n', i);
+                fprintf('Step %i \n', i);
                 zi = zold + i*dzalph;
                 Kzi = @(ef, es) K(ef, es, zi);
                 rzi = @(ef, es, fext) r(ef, es, fext, zi);
@@ -77,8 +74,8 @@ while ~solution_found
     elseif START_AT_ZERO
         % Started from zero, and coulnd't solve problem
         flagout = 2;
-        fprintf('Failed when starting at zero \n');
-        break;
+        fprintf('Failed when st
+        return;
     end
     
 end
@@ -89,6 +86,5 @@ if ~solution_found
     error(errorStruct);
 end
 
-fprintf('Solution found!\n')
 fprintf('%s\n', repmat('-', 1, 33));
 end

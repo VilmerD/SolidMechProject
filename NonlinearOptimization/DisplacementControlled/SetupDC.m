@@ -11,8 +11,9 @@ dr = @(ef, es, z) model.drdE(ef, es, z);
 
 drdzf = 0;
 zold = zeros(model.nelm, 1);
-NRESTARTS = 3;
-uold = zeros(model.ndof, NRESTARTS);
+zoldn = zold;
+RESTARTS_MAX = 4;
+uold = zeros(model.ndof, NSTEPS);
 
 % Setup Disp. controlled scheme
 % Free and prescribed nodes
@@ -27,18 +28,13 @@ s = 1;
 
 % Wrapper function for solving the equilibrium equations given the design z
     function [u, F, es, ef] = solve(z)
-        Kfun = @(ef, es) K(ef, es, z);
-        resfun = @(ef, es, fext) r(ef, es, fext, z);
-        sfun = @(u) S(u);
-        u0 = uold;
-        [u, F, es, ef, NSOLS] = NRDCoptstep(Kfun, resfun, sfun, ...
-            bc, u0, NSTEPS);
+        dz = z - zold;
+        [u, F, es, ef] = NRDCoptstep(K, r, S, dz, zold, bc, ...
+            uold, RESTARTS_MAX, NSTEPS);
         
         % Update uold
-        NINP = min(NRESTARTS, NSOLS);
-        Isol = (NSTEPS - NINP + 1):NSTEPS;
-        Iold = (NRESTARTS - NINP + 1):NRESTARTS;
-        uold(:, Iold) = u(:, Isol);
+        NSOLS = find(normAlong(u, 2, 1) ~= 0, 1, 'first');
+        uold(:, NSOLS:end) = u(:, NSOLS:end);
     end
 
 h = 1e-5;
@@ -121,10 +117,12 @@ indx = [10 100 666];
         
         % Computing change in design
         zn = z/norm(z);
-        th = min(1, dot(zn, zold));
+        th = min(1, dot(zn, zoldn));
         alph = sqrt(1 - th^2);
-        zold = zn;
         extra.alph = alph;
+        
+        zold = z;
+        zoldn = zn;
     end
 objective = @cmin;
 end

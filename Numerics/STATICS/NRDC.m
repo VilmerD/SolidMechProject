@@ -2,7 +2,7 @@ function [u, P, efn, esn, varargout] = NRDC(Kfun, rfun, sfun, bc, u0, NMAX)
 % Computes the displacement controlled response of the system
 
 ABS_MAX = 1e12;
-N_INNER_MAX = 20;
+N_INNER_MAX = 10;
 RTOL = 1e-9;
 
 % Free/Prescribed nodes
@@ -55,8 +55,14 @@ for n = (NMAX - NSTEP + 1):NMAX
         
         % Checking if the iteration should be terminated
         N_INNER = N_INNER + 1;
-        if N_INNER > N_INNER_MAX || rfree > ABS_MAX
-            flag = 1;
+        if N_INNER > N_INNER_MAX || rfree > ABS_MAX || ~isreal(resn)
+            if norm(u0) == 0
+                % Started from zero and couldn't converge, bad
+                flag = 2;
+            else
+                % Started from some initial guess, not as bad
+                flag = 1;
+            end
             argout = {flag, NSTEP, N_INNER_TOT, rfree/rtot};
             nargout_extra = nargout - 4;
             varargout = argout(1:nargout_extra);

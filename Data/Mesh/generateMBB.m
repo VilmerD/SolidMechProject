@@ -2,7 +2,7 @@ function file = generateMBB(res, dims)
 % Check if geom exists
 [exists, file] = findGeometry(res);
 if ~exists
-    fprintf('Generating geometry\');
+    fprintf('Generating geometry\n');
     % Dimentions and resolution
     width = dims(1);
     height = dims(2);
@@ -30,7 +30,7 @@ end
 
 function [found, filename] = findGeometry(res)
 filename = sprintf('%ix%i.mat', res(:));
-files_spec = dir(fullfile('**/MBB', filename));
+files_spec = dir(fullfile('**/MBB/', filename));
 if isempty(files_spec)
     found = false;
 else

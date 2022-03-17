@@ -1,7 +1,7 @@
 %% FEM Model
 % Load data
 dims = [3000e-3 1000e-3];
-res = [90 30];
+res = [105 35];
 geomfile = generateMBB(res, dims);
 load(geomfile);
 
@@ -22,7 +22,7 @@ model = NLContModel_opt.makeModel(geomfile, t, element, material, ...
 vq = 0.3;
 x0 = ones(model.nelm, 1)*vq;
 
-alph = -0.5;
+alph = -0.70;
 nsteps = 10;
 objective = SetupDC(model, vq, alph, nsteps);
 

@@ -83,6 +83,8 @@ classdef StructureFactory < handle
             end
             
             % Save file
+            width = obj.width;
+            height = obj.height;
             save(filename, 'F', 'bc', 'edof', 'edofs', 'nelm', 'ndof', 'ex', ...
                 'ey', 'enod', 'width', 'height')
         end
